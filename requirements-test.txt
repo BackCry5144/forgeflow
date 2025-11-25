@@ -1,0 +1,26 @@
+# ================================================================
+# Playwright 자동화 테스트 의존성
+# ================================================================
+# 설치 방법:
+#   pip install -r requirements-test.txt
+#   playwright install chromium
+# ================================================================
+
+# Playwright - 브라우저 자동화
+playwright==1.40.0
+
+# PostgreSQL 드라이버
+psycopg2-binary==2.9.9
+
+# HTTP 클라이언트
+requests==2.31.0
+
+# 환경 변수 관리
+python-dotenv==1.0.0
+
+# Optional: 스크린샷 처리
+# Pillow==10.1.0
+
+# Optional: 테스트 프레임워크
+# pytest==7.4.3
+# pytest-playwright==0.4.3

@@ -1,0 +1,201 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* UXON Design System - Light Mode */
+    --background: 0 0% 100%;
+    --foreground: 0 0% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 12%;
+    
+    /* Primary - UXON Blue 500 */
+    --primary: 221 83% 53%;
+    --primary-foreground: 0 0% 100%;
+    
+    /* Secondary - UXON Neutral 100 */
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 12%;
+    
+    /* Muted - UXON Neutral 100 */
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 35%;
+    
+    /* Accent - UXON Indigo 500 */
+    --accent: 239 78% 57%;
+    --accent-foreground: 0 0% 100%;
+    
+    /* Destructive - UXON Red 500 */
+    --destructive: 0 74% 51%;
+    --destructive-foreground: 0 0% 100%;
+    
+    /* Success - UXON Green 500 */
+    --success: 142 71% 37%;
+    --success-foreground: 0 0% 100%;
+    
+    /* Warning - UXON Orange 500 */
+    --warning: 24 91% 54%;
+    --warning-foreground: 0 0% 100%;
+    
+    /* Border & Input - UXON Neutral 300 */
+    --border: 0 0% 85%;
+    --input: 0 0% 85%;
+    
+    /* Ring - UXON Blue 500 */
+    --ring: 221 83% 53%;
+    
+    /* Radius - UXON 8px */
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    /* UXON Design System - Dark Mode */
+    --background: 0 0% 12%;
+    --foreground: 0 0% 96%;
+    --card: 0 0% 15%;
+    --card-foreground: 0 0% 96%;
+    --popover: 0 0% 12%;
+    --popover-foreground: 0 0% 96%;
+    
+    /* Primary - UXON Blue 400 (밝게) */
+    --primary: 221 82% 59%;
+    --primary-foreground: 0 0% 100%;
+    
+    /* Secondary - UXON Neutral 800 */
+    --secondary: 0 0% 15%;
+    --secondary-foreground: 0 0% 96%;
+    
+    /* Muted - UXON Neutral 800 */
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 65%;
+    
+    /* Accent - UXON Indigo 400 */
+    --accent: 239 76% 63%;
+    --accent-foreground: 0 0% 100%;
+    
+    /* Destructive - UXON Red 400 */
+    --destructive: 0 69% 60%;
+    --destructive-foreground: 0 0% 100%;
+    
+    /* Success - UXON Green 400 */
+    --success: 142 68% 47%;
+    --success-foreground: 0 0% 100%;
+    
+    /* Warning - UXON Orange 400 */
+    --warning: 24 89% 63%;
+    --warning-foreground: 0 0% 100%;
+    
+    /* Border & Input - UXON Neutral 700 */
+    --border: 0 0% 27%;
+    --input: 0 0% 27%;
+    
+    /* Ring - UXON Blue 400 */
+    --ring: 221 82% 59%;
+  }
+}
+
+/* UXON Typography Utilities */
+@layer components {
+  /* Heading Styles */
+  .uxon-heading-xxlarge {
+    font-size: 2.667rem;
+    font-weight: 700;
+    line-height: 1.5;
+    letter-spacing: 0.0625rem;
+  }
+  
+  .uxon-heading-xlarge {
+    font-size: 2.333rem;
+    font-weight: 700;
+    line-height: 1.5;
+  }
+  
+  .uxon-heading-large {
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1.5;
+  }
+  
+  .uxon-heading-medium {
+    font-size: 1.667rem;
+    font-weight: 700;
+    line-height: 1.5;
+  }
+  
+  .uxon-heading-small {
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1.5;
+  }
+  
+  .uxon-heading-xsmall {
+    font-size: 1.333rem;
+    font-weight: 700;
+    line-height: 1.5;
+  }
+  
+  /* Body Styles */
+  .uxon-body-xlarge {
+    font-size: 1.5rem;
+    font-weight: 400;
+    line-height: 1.5;
+  }
+  
+  .uxon-body-large {
+    font-size: 1.333rem;
+    font-weight: 400;
+    line-height: 1.5;
+  }
+  
+  .uxon-body-medium {
+    font-size: 1.167rem;
+    font-weight: 400;
+    line-height: 1.5;
+  }
+  
+  .uxon-body-small {
+    font-size: 1.083rem;
+    font-weight: 400;
+    line-height: 1.5;
+  }
+  
+  .uxon-body-xsmall {
+    font-size: 1rem;
+    font-weight: 400;
+    line-height: 1.5;
+  }
+  
+  /* Button Styles */
+  .uxon-button-large {
+    font-size: 1.333rem;
+    font-weight: 700;
+    line-height: 1.5;
+    height: 2.5rem;
+  }
+  
+  .uxon-button-medium {
+    font-size: 1.167rem;
+    font-weight: 700;
+    line-height: 1.5;
+    height: 2rem;
+  }
+  
+  .uxon-button-small {
+    font-size: 1.083rem;
+    font-weight: 700;
+    line-height: 1.5;
+    height: 1.75rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}

@@ -1,0 +1,162 @@
+# ForgeFlow - Docker Compose Configuration
+# Phase 5: Production-Ready Deployment
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:17-alpine
+    container_name: forgeflow-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: forgeflow
+      POSTGRES_PASSWORD: forgeflow123
+      POSTGRES_DB: forgeflow
+      TZ: Asia/Seoul
+      PGTZ: Asia/Seoul
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U forgeflow -d forgeflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - forgeflow-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: forgeflow-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      # Redis 데이터 영속화 (RDB 스냅샷)
+      - redis_data:/data
+    command: redis-server --save 60 1 --loglevel warning
+    # --save 60 1: 60초마다 1개 이상 키 변경 시 디스크에 저장 (RDB)
+    # --loglevel warning: 로그 레벨 (에러/경고만 출력)
+    networks:
+      - forgeflow-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Python FastAPI Backend
+  python-api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: forgeflow-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - ./backend/.env
+    environment:
+      # Database
+      DATABASE_URL: postgresql://forgeflow:forgeflow123@postgres:5432/forgeflow
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: forgeflow
+      DB_USER: forgeflow
+      DB_PASSWORD: forgeflow123
+      
+      # Redis
+      REDIS_URL: redis://redis:6379
+      
+      # OpenAI (loaded from .env file via env_file)
+      # OPENAI_API_KEY and OPENAI_MODEL will be loaded from backend/.env
+      
+      # CORS
+      CORS_ORIGINS: http://localhost:5173,http://localhost:8000
+      
+      # App Settings (loaded from .env file)
+      # API_HOST, API_PORT, DEBUG will be loaded from backend/.env
+      
+      # SSL 우회 설정 (사무실 환경)
+      PYTHONHTTPSVERIFY: 0
+      CURL_CA_BUNDLE: ""
+      REQUESTS_CA_BUNDLE: ""
+      SSL_CERT_FILE: ""
+      
+      # Timezone
+      TZ: Asia/Seoul
+    ports:
+      - "8000:8000"
+    volumes:
+      # 개발 모드: 코드 hot-reload
+      - ./backend:/app
+      # 배포 모드: Frontend 빌드 파일 (build.ps1 실행 후)
+      - ./frontend/dist:/app/static
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - forgeflow-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # n8n - workflow automation
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: forgeflow-n8n
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Use Postgres database named forgeflow_n8n
+      DB_TYPE: "postgresdb"
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: forgeflow_n8n
+      DB_POSTGRESDB_USER: forgeflow
+      DB_POSTGRESDB_PASSWORD: forgeflow123
+
+      # SSL / TLS bypass for internal network (if needed)
+      NODE_TLS_REJECT_UNAUTHORIZED: "0"
+      GRPC_SSL_CIPHER_SUITES: "HIGH+ECDSA"
+      GRPC_DEFAULT_SSL_ROOTS_FILE_PATH: ""
+      CURL_CA_BUNDLE: ""
+      REQUESTS_CA_BUNDLE: ""
+      SSL_CERT_FILE: ""
+
+      # Timezone
+      TZ: Asia/Seoul
+    ports:
+      - "5678:5678"
+    networks:
+      - forgeflow-network
+    volumes:
+      # persist n8n data (workflows, credentials) in case user wants to keep it locally
+      - n8n_data:/home/node/.n8n
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5678/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+volumes:
+  postgres_data:
+    driver: local
+    name: forgeflow_postgres_data
+  redis_data:
+    driver: local
+    name: forgeflow_redis_data
+  n8n_data:
+    driver: local
+    name: forgeflow_n8n_data
+
+networks:
+  forgeflow-network:
+    driver: bridge
+    name: forgeflow_network
