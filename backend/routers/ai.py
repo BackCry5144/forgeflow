@@ -7,7 +7,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import Dict, Any
 from sqlalchemy.exc import SQLAlchemyError
-from fastapi import File, UploadFile
+from fastapi import File, UploadFile, Form
 from typing import List
 import logging
 
@@ -22,6 +22,7 @@ from schemas.ai import (
 )
 from services.ai_service import get_ai_service, AIService
 from services.ai_service import AIServiceError
+from services.document_service import DocumentService
 from models.database import get_db, SessionLocal
 from models.screen import Screen, GenerationStatus
 
@@ -176,50 +177,51 @@ async def generate_prototype(
 
 
 # 설계서 생성
-# @router.post("/documents/designDoc")
-# async def generate_design_doc(
-#     request: GenerateRequest,
-#     # 다중 파일 수신 준비
-#     screenshots: List[UploadFile] = File(default=[]),
-#     screenshot_labels: List[str] = Form(default=[]),
-#     db: Session = Depends(get_db)
-# ):
-#     """
-#     [Step 1 테스트용] 이미지 수신 확인 엔드포인트
-#     """
-#     logger.info(f"📥 Design Doc request for Screen ID: {request.screen_id}")
+@router.post("/documents/designDoc")
+async def generate_design_doc(
+    # request: GenerateRequest,
+    screen_id: int = Form(...),
+    # 다중 파일 수신 준비
+    screenshots: List[UploadFile] = File(default=[]),
+    screenshot_labels: List[str] = Form(default=[]),
+    db: Session = Depends(get_db)
+):
+    """
+    [Step 1 테스트용] 이미지 수신 확인 엔드포인트
+    """
+    logger.info(f"📥 Design Doc request for Screen ID: {screen_id}")
     
-#     received_info = []
-#     total_size = 0
+    received_info = []
+    total_size = 0
 
-#     # 1. 이미지 수신 확인
-#     for idx, file in enumerate(screenshots):
-#         content = await file.read()
-#         size = len(content)
-#         total_size += size
+    # 1. 이미지 수신 확인
+    for idx, file in enumerate(screenshots):
+        content = await file.read()
+        size = len(content)
+        total_size += size
         
-#         label = screenshot_labels[idx] if idx < len(screenshot_labels) else "Unknown"
-#         logger.info(f"   📸 Received Image: {file.filename} ({label}) - {size} bytes")
+        label = screenshot_labels[idx] if idx < len(screenshot_labels) else "Unknown"
+        logger.info(f"   📸 Received Image: {file.filename} ({label}) - {size} bytes")
         
-#         received_info.append({
-#             "filename": file.filename,
-#             "label": label,
-#             "size": size
-#         })
+        received_info.append({
+            "filename": file.filename,
+            "label": label,
+            "size": size
+        })
 
-#     if total_size == 0:
-#         logger.warning("⚠️ No screenshot data received!")
-#         raise HTTPException(status_code=400, detail="이미지가 전송되지 않았습니다.")
+    if total_size == 0:
+        logger.warning("⚠️ No screenshot data received!")
+        raise HTTPException(status_code=400, detail="이미지가 전송되지 않았습니다.")
 
-#     # Step 1에서는 여기까지만 확인하고 성공 응답을 보냅니다.
-#     # (Step 3에서 실제 문서 생성 로직으로 교체될 예정)
-#     return {
-#         "status": "success",
-#         "message": "Step 1 통과: 이미지가 정상적으로 백엔드에 도착했습니다.",
-#         "count": len(received_info),
-#         "received_size": total_size,
-#         "details": received_info
-#     }
+    # Step 1에서는 여기까지만 확인하고 성공 응답을 보냅니다.
+    # (Step 3에서 실제 문서 생성 로직으로 교체될 예정)
+    return {
+        "status": "success",
+        "message": "Step 1 통과: 이미지가 정상적으로 백엔드에 도착했습니다.",
+        "count": len(received_info),
+        "received_size": total_size,
+        "details": received_info
+    }
 
 
 @router.get("/health")
@@ -438,51 +440,4 @@ async def load_wizard_draft(
         raise
     except Exception as e:
         logger.error(f"❌ Error loading wizard draft: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/screens/{screen_id}/documents/package")
-async def download_document_package(
-    screen_id: int,
-    # 프론트에서 캡처한 이미지 리스트 (선택)
-    screenshots: List[UploadFile] = File(default=[]),
-    db: Session = Depends(get_db)
-):
-    # 1. DB 조회
-    screen = db.query(Screen).filter(Screen.id == screen_id).first()
-    
-    # 2. 데이터 유효성 검사
-    if not screen:
-        raise HTTPException(status_code=404, detail="Screen not found")
-    if not screen.prototype_html:
-        raise HTTPException(status_code=400, detail="No generated code found. Please generate prototype first.")
-    if not screen.wizard_data:
-        raise HTTPException(status_code=400, detail="No wizard data found.")
-
-    # 3. 이미지 처리
-    processed_images = []
-    for file in screenshots:
-        content = await file.read()
-        processed_images.append({"bytes": content})
-
-    # 4. 서비스 호출
-    doc_service = DocumentService()
-    try:
-        zip_buffer = await doc_service.generate_full_package(
-            screen_name=screen.name,
-            react_code=screen.prototype_html, # Source of Truth 1 (Fact)
-            wizard_data=screen.wizard_data,   # Source of Truth 2 (Context)
-            images=processed_images           # Visual
-        )
-        
-        filename = f"{screen.name}_산출물패키지.zip".encode('utf-8').decode('latin-1')
-        
-        return StreamingResponse(
-            zip_buffer,
-            media_type="application/zip",
-            headers={"Content-Disposition": f"attachment; filename={filename}"}
-        )
-        
-    except Exception as e:
-        logger.error(f"Document generation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))

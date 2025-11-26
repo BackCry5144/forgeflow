@@ -5,7 +5,7 @@ import { useScreenshot } from '@/hooks/useScreenshot'; // Hook 경로 확인 필
 import { FileText, Loader2 } from 'lucide-react'; // Download 제거
 
 interface ScreenDetailProps {
-  // screenId: number; // 사용하지 않으므로 제거
+  screenId: number; // 사용하지 않으므로 제거
   screenName: string;
   code: string;           // 생성된 프로토타입 코드
   prompt: string;         // 프롬프트 입력값
@@ -17,7 +17,7 @@ interface ScreenDetailProps {
 }
 
 export function ScreenDetail({
-  // screenId, // 사용하지 않으므로 제거
+  screenId,
   screenName,
   code,
   prompt,
@@ -54,6 +54,8 @@ export function ScreenDetail({
 
       // (B) 백엔드 전송 데이터 준비
       const formData = new FormData();
+      // ✅ [필수 추가] screen_id를 전송해야 백엔드가 어떤 화면인지 알 수 있음
+      formData.append('screen_id', screenId.toString());      
       formData.append('screenshots', screenshot.blob, 'main_preview.png');
       formData.append('screenshot_labels', screenshot.label);
 

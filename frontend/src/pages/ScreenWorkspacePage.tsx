@@ -160,13 +160,6 @@ export function ScreenWorkspacePage() {
     setGenerating(false);
   };
 
-  // const handleGenerateDocuments = async () => {
-  //   if (!screen) return;
-
-  //   // TODO: 산출물 생성 기능 구현 예정
-  //   alert('산출물 생성 기능은 현재 구현 중입니다.');
-  // };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">

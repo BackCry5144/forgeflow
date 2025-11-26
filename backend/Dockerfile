@@ -17,6 +17,9 @@ RUN apt-get update && apt-get install -y \
     curl \
     postgresql-client \
     ca-certificates \
+    gcc \
+    libxml2-dev \
+    libxslt-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Python 의존성 복사 및 설치 (SSL 검증 비활성화)
