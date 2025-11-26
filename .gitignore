@@ -62,3 +62,6 @@ backend-python/static/assets/
 node_modules/
 frontend/dist/
 frontend/.vite/
+
+# Docs는 제외
+01.Docs/
