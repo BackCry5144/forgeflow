@@ -1,5 +1,5 @@
 """
-ForgeFlow Lite - Pydantic Schemas
+ForgeFlow - Pydantic Schemas
 """
 
 from .menu import MenuCreate, MenuUpdate, MenuResponse, MenuDetail

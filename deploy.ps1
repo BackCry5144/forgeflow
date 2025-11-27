@@ -1,8 +1,8 @@
-# ForgeFlow Lite - Deploy Script
+# ForgeFlow - Deploy Script
 # 전체 시스템 배포 (빌드 + Docker 실행)
 
 Write-Host "================================" -ForegroundColor Cyan
-Write-Host "ForgeFlow Lite - Deploy Script" -ForegroundColor Cyan
+Write-Host "ForgeFlow - Deploy Script" -ForegroundColor Cyan
 Write-Host "================================" -ForegroundColor Cyan
 Write-Host ""
 

@@ -1,8 +1,8 @@
-# ForgeFlow Lite - Build Script
+# ForgeFlow - Build Script
 # Frontend 빌드 및 Python static 폴더로 복사
 
 Write-Host "================================" -ForegroundColor Cyan
-Write-Host "ForgeFlow Lite - Build Script" -ForegroundColor Cyan
+Write-Host "ForgeFlow - Build Script" -ForegroundColor Cyan
 Write-Host "================================" -ForegroundColor Cyan
 Write-Host ""
 

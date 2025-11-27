@@ -179,49 +179,70 @@ async def generate_prototype(
 # 설계서 생성
 @router.post("/documents/designDoc")
 async def generate_design_doc(
-    # request: GenerateRequest,
     screen_id: int = Form(...),
-    # 다중 파일 수신 준비
     screenshots: List[UploadFile] = File(default=[]),
     screenshot_labels: List[str] = Form(default=[]),
     db: Session = Depends(get_db)
 ):
     """
-    [Step 1 테스트용] 이미지 수신 확인 엔드포인트
+    [Step 2, 3 완료] 설계서(Word) 생성 및 다운로드
     """
-    logger.info(f"📥 Design Doc request for Screen ID: {screen_id}")
+    logger.info(f"📥 Design Doc Generation Start: Screen {screen_id}")
     
-    received_info = []
-    total_size = 0
+    # 1. DB 조회
+    screen = db.query(Screen).filter(Screen.id == screen_id).first()
+    if not screen:
+        raise HTTPException(status_code=404, detail="Screen not found")
+    
+    # 필수 데이터 확인 (코드가 있어야 분석 가능)
+    if not screen.prototype_html:
+        raise HTTPException(status_code=400, detail="No generated code found. Please generate prototype first.")
 
-    # 1. 이미지 수신 확인
+    # 2. 이미지 처리
+    processed_images = []
     for idx, file in enumerate(screenshots):
         content = await file.read()
-        size = len(content)
-        total_size += size
-        
-        label = screenshot_labels[idx] if idx < len(screenshot_labels) else "Unknown"
-        logger.info(f"   📸 Received Image: {file.filename} ({label}) - {size} bytes")
-        
-        received_info.append({
-            "filename": file.filename,
-            "label": label,
-            "size": size
-        })
+        if content:
+            label = screenshot_labels[idx] if idx < len(screenshot_labels) else f"Image {idx+1}"
+            processed_images.append({"label": label, "bytes": content})
+    
+    logger.info(f"   📸 Images received: {len(processed_images)}")
 
-    if total_size == 0:
-        logger.warning("⚠️ No screenshot data received!")
-        raise HTTPException(status_code=400, detail="이미지가 전송되지 않았습니다.")
+    # 3. 문서 생성 서비스 호출
+    doc_service = DocumentService()
+    
+    try:
+        # 🔥 여기가 핵심: LLM 분석 + Word 생성
+        docx_buffer = await doc_service.generate_design_doc(
+            screen_name=screen.name,
+            react_code=screen.prototype_html,
+            wizard_data=screen.wizard_data,
+            images=processed_images
+        )
+        
+        # 4. 파일명 인코딩 (한글 파일명 깨짐 방지)
+        safe_filename = f"{screen.name}_화면설계서.docx"
+        try:
+            filename_header = safe_filename.encode('utf-8').decode('latin-1')
+        except:
+            filename_header = "design_document.docx"
 
-    # Step 1에서는 여기까지만 확인하고 성공 응답을 보냅니다.
-    # (Step 3에서 실제 문서 생성 로직으로 교체될 예정)
-    return {
-        "status": "success",
-        "message": "Step 1 통과: 이미지가 정상적으로 백엔드에 도착했습니다.",
-        "count": len(received_info),
-        "received_size": total_size,
-        "details": received_info
-    }
+        logger.info("✅ Document generated successfully. Sending response...")
+
+        return StreamingResponse(
+            docx_buffer,
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={
+                "Content-Disposition": f"attachment; filename={filename_header}"
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"❌ Document generation failed: {e}")
+        # 상세 에러 로깅
+        import traceback
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"문서 생성 실패: {str(e)}")
 
 
 @router.get("/health")

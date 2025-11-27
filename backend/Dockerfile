@@ -1,9 +1,11 @@
-# ForgeFlow Lite - Dockerfile
+# ForgeFlow - Dockerfile
 # Python FastAPI Backend
 
 FROM python:3.11-slim
 
-# SSL 인증서 검증 우회 설정 (사무실 환경)
+# =================================================================
+# 1. SSL 인증서 검증 우회 설정 (사무실 보안/프록시 환경 대응)
+# =================================================================
 ENV PYTHONHTTPSVERIFY=0
 ENV CURL_CA_BUNDLE=""
 ENV REQUESTS_CA_BUNDLE=""
@@ -12,7 +14,11 @@ ENV SSL_CERT_FILE=""
 # 작업 디렉토리 설정
 WORKDIR /app
 
-# 시스템 패키지 업데이트 및 필수 도구 설치
+# =================================================================
+# 2. 시스템 패키지 설치 (중요!)
+# - gcc, libxml2-dev, libxslt-dev: python-docx (lxml) 설치용
+# - libjpeg-dev, zlib1g-dev: Pillow (이미지 처리) 설치용
+# =================================================================
 RUN apt-get update && apt-get install -y \
     curl \
     postgresql-client \
@@ -20,11 +26,20 @@ RUN apt-get update && apt-get install -y \
     gcc \
     libxml2-dev \
     libxslt-dev \
+    libjpeg-dev \
+    zlib1g-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Python 의존성 복사 및 설치 (SSL 검증 비활성화)
+# =================================================================
+# 3. Python 의존성 복사 및 설치
+# - pip SSL 검증 비활성화 옵션(--trusted-host) 포함
+# =================================================================
 COPY requirements.txt .
-RUN pip install --no-cache-dir --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org -r requirements.txt
+RUN pip install --no-cache-dir \
+    --trusted-host pypi.org \
+    --trusted-host pypi.python.org \
+    --trusted-host files.pythonhosted.org \
+    -r requirements.txt
 
 # 애플리케이션 코드 복사
 COPY . .

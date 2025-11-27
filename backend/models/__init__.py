@@ -1,5 +1,5 @@
 """
-ForgeFlow Lite - Database Models
+ForgeFlow - Database Models
 """
 
 from .database import Base, engine, SessionLocal, get_db, init_db

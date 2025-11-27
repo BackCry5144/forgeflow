@@ -1,5 +1,5 @@
 """
-ForgeFlow Lite - API Routers
+ForgeFlow - API Routers
 """
 
 from .menus import router as menus_router

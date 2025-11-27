@@ -1,6 +1,6 @@
-# ForgeFlow Lite
+# ForgeFlow
 
-**버전**: 2.0 Lite  
+**버전**: 2.0  
 **Phase**: 5 - 배포 준비 완료 ✅
 
 AI 기반 UI 프로토타입 생성 및 산출물 자동화 시스템

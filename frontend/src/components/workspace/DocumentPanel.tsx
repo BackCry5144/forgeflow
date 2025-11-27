@@ -103,11 +103,66 @@ export function DocumentPanel(props: {
     wizard_data: wizardData,
   };
 
+  // ✅ [수정] 설계서 생성 및 다운로드 핸들러 (ScreenDetail에서 이사 옴)
   const handleGenerateDesign = async () => {
+    
+    console.log("handleGenerateDesign Start");
+
     setLoadingDesign(true);
     try {
-      const res = await aiService.generateDesignDoc(generateRequest);
-      setLocalDesignDoc(res.design_doc);
+      // 1. 전송 데이터 준비 (이미지 없이 ID만 전송)
+      console.log("1. 전송 데이터 준비 (이미지 없이 ID만 전송)");
+      const formData = new FormData();
+      formData.append('screen_id', screenId.toString());
+
+      // 2. API 호출
+      console.log("2. API 호출");
+      const response = await fetch(`/api/ai/documents/designDoc`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (response.ok) {
+        // 3. 파일 다운로드 처리
+        console.log("3. 파일 다운로드 처리");
+        const blob = await response.blob();
+        
+        // 파일명 추출
+        const disposition = response.headers.get('Content-Disposition');
+        let filename = `${screenName}_화면설계서.docx`;
+        if (disposition && disposition.includes('filename=')) {
+            filename = disposition.split('filename=')[1].replace(/["']/g, '');
+            try { filename = decodeURIComponent(filename); } catch(e) {}
+        }
+
+        // 브라우저 다운로드 트리거
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        
+        // 4. 뒷정리
+        setTimeout(() => {
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            console.log("4. 뒷정리 완료");
+        }, 100);
+
+        // 5. UI 상태 업데이트 (성공 표시용)
+        // 실제 내용은 Word 파일에 있지만, UI 상에서 "생성됨" 상태로 바꾸기 위해 텍스트 설정
+        console.log("5. UI 상태 업데이트 (성공 표시용)");
+        setLocalDesignDoc(`### ✅ 설계서 생성 완료\n\n**파일명:** ${filename}\n\n파일이 자동으로 다운로드되었습니다. 다시 다운로드하려면 우측 상단의 버튼을 클릭하세요.`);
+        
+      } else {
+        const errorText = await response.text();
+        console.error("서버 에러:", errorText);
+        alert("설계서 생성 실패: " + errorText);
+      }
+    } catch (e) {
+      console.error("에러 발생:", e);
+      alert("오류가 발생했습니다.");
     } finally {
       setLoadingDesign(false);
     }
