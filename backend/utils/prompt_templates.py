@@ -243,52 +243,6 @@ def get_step_4_prompt(wizard_data: dict) -> str:
 """
 
 
-# ============================================================================
-# Wizard 기반 프롬프트 생성 함수들
-# ============================================================================
-def get_wizard_based_prompt(
-    wizard_data: dict,
-    menu_name: str,
-    screen_name: str
-) -> str:
-    """
-    Wizard 데이터를 기반으로 토큰 최적화된 프롬프트 생성
-
-    Args:
-        wizard_data: Step1~4의 원본 데이터
-        menu_name: 메뉴 이름
-        screen_name: 화면 이름
-
-    Returns:
-        str: 토큰 최적화된 프롬프트
-    """
-    step1 = wizard_data.get('step1', {})
-    step2 = wizard_data.get('step2', {})
-    step3 = wizard_data.get('step3', {})
-    step4 = wizard_data.get('step4', {})
-    
-    layout_areas = step2.get('layoutAreas', [])
-    components = step3.get('components', [])
-
-    prompt = f"""{SYSTEM_PROMPT}
-
-# 화면: {menu_name} > {screen_name}
-설명: {step1.get('description', '-')}
-레이아웃: {step2.get('selectedLayout', '-')}
-
-# 레이아웃 구조
-{_format_layout_areas(layout_areas)}
-
-# 컴포넌트 (영역별)
-{_format_components_by_area(components, layout_areas)}
-
-# 인터랙션
-{_format_interactions(step4.get('interactions', []), components, layout_areas)}
-"""
-
-    return prompt
-
-
 def _format_layout_areas(layout_areas: list) -> str:
     """레이아웃 영역 정보를 간결하게 포맷팅 (토큰 최적화)"""
     if not layout_areas:
