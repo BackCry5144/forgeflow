@@ -11,13 +11,6 @@ import type {
 export const screenService = {
   /**
    * 화면 목록 조회 (메뉴별)
-   */
-  async getScreens(menuId?: number): Promise<Screen[]> {
-    const params = menuId ? { menu_id: menuId } : {};
-    const response = await apiClient.get<{ total: number; items: Screen[] }>('/api/screens', { params });
-    return response.data.items;
-  },
-
   /**
    * 화면 상세 조회 (피드백 포함)
    */

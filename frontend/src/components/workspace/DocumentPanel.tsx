@@ -48,7 +48,10 @@ function DocumentTabContent({ label, icon, doc, status, loading, onGenerate, onD
         <Card className="flex-1">
           <CardContent className="pt-6 h-full">
             <div className="prose max-w-none overflow-y-auto h-full pr-4">
-              <ReactMarkdown>{doc}</ReactMarkdown>
+              {/* 설계서 영역은 안내 메시지만 표시 (랜더링 없음) */}
+              <div className="text-muted-foreground text-lg">
+                설계서는 Word 파일로 저장되어 있습니다. 다운로드 버튼을 이용해 파일을 받아주세요.
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -59,7 +62,6 @@ function DocumentTabContent({ label, icon, doc, status, loading, onGenerate, onD
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import ReactMarkdown from 'react-markdown';
 import { FileText, TestTube, BookOpen, Download } from 'lucide-react';
 
 
@@ -86,14 +88,59 @@ export function DocumentPanel(props: {
   const [localTestPlan, setLocalTestPlan] = useState<string | null>(testPlan);
   const [localManual, setLocalManual] = useState<string | null>(manual);
 
-  const downloadDocument = (content: string, filename: string) => {
+  // [수정] 파일 다운로드 핸들러
+  const downloadDocument = async (content: string, filename: string) => {
+    
+    console.info("downloadDocument Start:", filename);
+
+    // 1. 설계서(.docx)인 경우: 서버에서 파일 스트림 받아오기 (GET)
+    if (filename.endsWith('.docx')) {
+      try {
+        // 저장된 파일 다운로드 API 호출
+        const response = await fetch(`/api/ai/screens/${screenId}/documents/design/download`);
+
+        if (response.ok) {
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = filename; // 전달받은 파일명 사용
+          document.body.appendChild(a);
+          a.click();
+
+          // 메모리 해제 및 요소 제거
+          setTimeout(() => {
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+          }, 100);
+        } else {
+          if (response.status === 404) {
+            alert("생성된 설계서가 없습니다. 먼저 '설계서 생성'을 진행해 주세요.");
+          } else {
+            alert("파일 다운로드에 실패했습니다. 서버 상태를 확인해 주세요.");
+          }
+        }
+      } catch (e) {
+        console.error("Download failed:", e);
+        alert("다운로드 중 오류가 발생했습니다.");
+      }
+      return;
+    }
+
+    // 2. 그 외 파일(.md 등): 텍스트 기반 다운로드 (기존 로직 유지)
+    // (테스트 계획서나 매뉴얼이 아직 마크다운 방식이라면 이 로직을 탑니다)
     const blob = new Blob([content], { type: 'text/markdown' });
-    const url = URL.createObjectURL(blob);
+    const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = filename;
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
+    
+    setTimeout(() => {
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+    }, 100);
   };
 
   const generateRequest: GenerateRequest = {

@@ -14,7 +14,6 @@ from schemas.screen import (
     ScreenResponse,
     ScreenDetail,
     ScreenListResponse,
-    ScreenApproveResponse,
     ScreenStatusEnum
 )
 from schemas.feedback import FeedbackCreate, FeedbackResponse
@@ -24,8 +23,6 @@ router = APIRouter(
     tags=["screens"],
     responses={404: {"description": "Not found"}},
 )
-
-
 @router.post(
     "",
     response_model=ScreenResponse,
@@ -89,7 +86,7 @@ async def get_screens(
     
     return {
         "total": total,
-        "items": screens
+        "items": [screen.to_dict() for screen in screens]
     }
 
 
@@ -112,7 +109,7 @@ async def get_screen(
             detail=f"Screen with id {screen_id} not found"
         )
     
-    return db_screen
+    return db_screen.to_dict() if db_screen else None
 
 
 @router.put(
@@ -143,7 +140,7 @@ async def update_screen(
     db.commit()
     db.refresh(db_screen)
     
-    return db_screen
+    return db_screen.to_dict() if db_screen else None
 
 
 @router.delete(
@@ -169,55 +166,6 @@ async def delete_screen(
     db.commit()
     
     return None
-
-
-@router.post(
-    "/{screen_id}/approve",
-    response_model=ScreenApproveResponse,
-    summary="화면 승인",
-    description="화면을 승인 상태로 변경하고 설계서를 생성합니다."
-)
-async def approve_screen(
-    screen_id: int,
-    db: Session = Depends(get_db)
-):
-    """화면 승인 (설계서 생성 기능은 준비 중)"""
-    
-    db_screen = db.query(Screen).filter(Screen.id == screen_id).first()
-    
-    if not db_screen:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Screen with id {screen_id} not found"
-        )
-    
-    # 프로토타입이 있는지 확인
-    if not db_screen.prototype_html:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="프로토타입이 생성되지 않았습니다. 먼저 프로토타입을 생성해주세요."
-        )
-    
-    try:
-        # TODO: 설계서 자동 생성 기능 구현 예정 (generate_design_document 메소드 필요)
-        # 현재는 상태만 변경
-        db_screen.status = ScreenStatusEnum.APPROVED
-        db_screen.design_doc = "# 설계서\n\n설계서 자동 생성 기능은 준비 중입니다."
-        db.commit()
-        db.refresh(db_screen)
-        
-        return {
-            "id": db_screen.id,
-            "status": db_screen.status,
-            "message": f"Screen '{db_screen.name}' has been approved successfully"
-        }
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"승인 중 오류 발생: {str(e)}"
-        )
-
 
 @router.post(
     "/{screen_id}/feedback",

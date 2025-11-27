@@ -3,7 +3,7 @@
 Screen Model - 화면 테이블 모델
 """
 
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Enum, JSON
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Enum, JSON, LargeBinary
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -63,7 +63,7 @@ class Screen(Base):
     prototype_html = Column(Text, nullable=True, comment="HTML 프로토타입")
     
     # 산출물
-    design_doc = Column(Text, nullable=True, comment="설계서 (Markdown)")
+    design_doc = Column(LargeBinary, nullable=True, comment="설계서 (Binary)")
     test_plan = Column(Text, nullable=True, comment="테스트 계획서 (Markdown)")
     manual = Column(Text, nullable=True, comment="사용자 매뉴얼 (Markdown)")
     
@@ -143,7 +143,7 @@ class Screen(Base):
             "prompt": self.prompt,
             "wizard_data": self.wizard_data,
             "prototype_html": self.prototype_html,
-            "design_doc": self.design_doc,
+            "design_doc": None,
             "test_plan": self.test_plan,
             "manual": self.manual,
             "status": self.status.value if isinstance(self.status, ScreenStatus) else self.status,

@@ -33,7 +33,7 @@ class GenerateRequest(BaseModel):
 class GenerateResponse(BaseModel):
     """프로토타입 생성 응답 (설계서는 승인 시 생성)"""
     prototype_html: str = Field(..., description="HTML 프로토타입")
-    design_doc: Optional[str] = Field(None, description="설계서 (Markdown) - 승인 시 생성됨")
+    design_doc: Optional[bytes] = Field(None, description="설계서")
     
     class Config:
         json_schema_extra = {
@@ -75,7 +75,7 @@ class GenerateDocumentsRequest(BaseModel):
 
 class GenerateDocumentsResponse(BaseModel):
     """산출물 생성 응답"""
-    design_doc: str = Field(..., description="설계서 (Markdown)")
+    design_doc: Optional[bytes] = Field(None, description="설계서")
     test_plan: str = Field(..., description="테스트 계획서 (Markdown)")
     manual: str = Field(..., description="사용자 매뉴얼 (Markdown)")
     

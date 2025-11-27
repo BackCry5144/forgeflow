@@ -198,14 +198,11 @@ export function ScreenWorkspacePage() {
           </div>
           <div className="flex items-center gap-2">
             <div className={`px-2 py-1 rounded-full text-xs font-medium ${
-              screen.status === 'approved' 
-                ? 'bg-green-100 text-green-700'
-                : screen.status === 'in_review'
+              screen.status === 'in_review'
                 ? 'bg-blue-100 text-blue-700'
                 : 'bg-gray-100 text-gray-700'
             }`}>
-              {screen.status === 'approved' ? '승인됨' : 
-               screen.status === 'in_review' ? '검토중' : '초안'}
+              {screen.status === 'in_review' ? '검토중' : '초안'}
             </div>
           </div>
         </div>

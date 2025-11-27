@@ -219,13 +219,21 @@ async def generate_design_doc(
             wizard_data=screen.wizard_data,
             images=processed_images
         )
+
+        # 🔥 2. [추가] 생성된 파일을 DB에 저장
+        file_content = docx_buffer.getvalue() # 바이너리 데이터 추출
+        screen.design_doc = file_content
+        db.commit() # DB 저장 확정
+        logger.info(f"💾 Design doc saved to DB ({len(file_content)} bytes)")
+
+        # 3. 버퍼 포인터 초기화 (중요! 읽어버려서 끝에 가 있으므로 다시 처음으로)
+        docx_buffer.seek(0)
         
         # 4. 파일명 인코딩 (한글 파일명 깨짐 방지)
+
+        from urllib.parse import quote
         safe_filename = f"{screen.name}_화면설계서.docx"
-        try:
-            filename_header = safe_filename.encode('utf-8').decode('latin-1')
-        except:
-            filename_header = "design_document.docx"
+        quoted_filename = quote(safe_filename)
 
         logger.info("✅ Document generated successfully. Sending response...")
 
@@ -233,7 +241,7 @@ async def generate_design_doc(
             docx_buffer,
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             headers={
-                "Content-Disposition": f"attachment; filename={filename_header}"
+                "Content-Disposition": f"attachment; filename*=UTF-8''{quoted_filename}"
             }
         )
         
@@ -462,3 +470,32 @@ async def load_wizard_draft(
     except Exception as e:
         logger.error(f"❌ Error loading wizard draft: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/screens/{screen_id}/documents/design/download")
+async def download_stored_design_doc(
+    screen_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    저장된 설계서 다운로드
+    """
+    screen = db.query(Screen).filter(Screen.id == screen_id).first()
+    if not screen:
+        raise HTTPException(status_code=404, detail="Screen not found")
+        
+    if not screen.design_doc:
+        raise HTTPException(status_code=404, detail="생성된 설계서가 없습니다. 먼저 생성해주세요.")
+
+    # DB의 바이너리 데이터를 스트림으로 변환
+    from io import BytesIO
+    file_stream = BytesIO(screen.design_doc)
+    
+    filename = f"{screen.name}_화면설계서.docx".encode('utf-8').decode('latin-1')
+    quoted_filename = quote(filename)
+    
+    return StreamingResponse(
+        file_stream,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quoted_filename}"}
+    )

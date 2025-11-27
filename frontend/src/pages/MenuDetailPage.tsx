@@ -60,7 +60,6 @@ export function MenuDetailPage() {
     const badges = {
       draft: { label: '초안', color: 'bg-gray-200 text-gray-700' },
       in_review: { label: '검토중', color: 'bg-blue-200 text-blue-700' },
-      approved: { label: '승인', color: 'bg-green-200 text-green-700' },
     };
     const badge = badges[status as keyof typeof badges] || badges.draft;
     return (

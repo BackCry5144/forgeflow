@@ -39,7 +39,7 @@ class ScreenUpdate(BaseModel):
     prompt: Optional[str] = Field(None, description="LLM에 전달된 전체 프롬프트 (SYSTEM + USER)")
     wizard_data: Optional[Dict[str, Any]] = Field(None, description="Step by Step Wizard 데이터")
     prototype_html: Optional[str] = Field(None, description="HTML 프로토타입")
-    design_doc: Optional[str] = Field(None, description="설계서")
+    design_doc: Optional[bytes] = Field(None, description="설계서")
     test_plan: Optional[str] = Field(None, description="테스트 계획서")
     manual: Optional[str] = Field(None, description="사용자 매뉴얼")
     status: Optional[ScreenStatusEnum] = Field(None, description="화면 상태")
@@ -50,7 +50,7 @@ class ScreenResponse(ScreenBase):
     id: int = Field(..., description="화면 ID")
     wizard_data: Optional[Dict[str, Any]] = Field(None, description="Step by Step Wizard 데이터")
     prototype_html: Optional[str] = Field(None, description="HTML 프로토타입")
-    design_doc: Optional[str] = Field(None, description="설계서")
+    design_doc: Optional[bytes] = Field(None, description="설계서")
     test_plan: Optional[str] = Field(None, description="테스트 계획서")
     manual: Optional[str] = Field(None, description="사용자 매뉴얼")
     status: ScreenStatusEnum = Field(..., description="화면 상태")
@@ -73,8 +73,3 @@ class ScreenListResponse(BaseModel):
     items: List[ScreenResponse] = Field(..., description="화면 목록")
 
 
-class ScreenApproveResponse(BaseModel):
-    """화면 승인 응답 스키마"""
-    id: int = Field(..., description="화면 ID")
-    status: ScreenStatusEnum = Field(..., description="변경된 상태")
-    message: str = Field(..., description="승인 메시지")

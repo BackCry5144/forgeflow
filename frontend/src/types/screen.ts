@@ -1,4 +1,4 @@
-export type ScreenStatus = 'draft' | 'in_review' | 'approved';
+export type ScreenStatus = 'draft' | 'in_review';
 
 export interface Screen {
   id: number;

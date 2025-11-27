@@ -87,7 +87,7 @@ async def get_menus(
     
     return {
         "total": total,
-        "items": menus
+        "items": [menu.__dict__ for menu in menus]
     }
 
 
@@ -110,7 +110,16 @@ async def get_menu(
             detail=f"Menu with id {menu_id} not found"
         )
     
-    return db_menu
+    if db_menu:
+        menu_dict = db_menu.__dict__.copy()
+        # screens 리스트 to_dict 적용
+        if hasattr(db_menu, 'screens'):
+            menu_dict['screens'] = [screen.to_dict() for screen in db_menu.screens]
+        # children도 dict로 변환 (트리 구조 지원 시)
+        if hasattr(db_menu, 'children'):
+            menu_dict['children'] = [child.__dict__ for child in db_menu.children]
+        return menu_dict
+    return None
 
 
 @router.put(
