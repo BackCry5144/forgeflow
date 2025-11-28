@@ -17,18 +17,12 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
   const handleMenuSelect = async (menu: Menu) => {
     setSelectedMenu(menu);
-    
-    // 폴더가 아닌 메뉴만 처리
     if (!menu.is_folder) {
       try {
-        // 메뉴의 화면 정보 확인
         const menuData = await menuService.getMenu(menu.id);
-        
         if (menuData.screens && menuData.screens.length > 0) {
-          // 화면이 있으면 첫 번째 화면으로 이동
           navigate(`/screen/${menuData.screens[0].id}`);
         } else {
-          // 화면이 없으면 자동 생성 후 이동
           const newScreen = await screenService.createScreen({
             menu_id: menu.id,
             name: `${menu.name} 화면`,
@@ -43,46 +37,44 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     }
   };
 
+  const handleActivityBarClick = (view: string) => {
+    setActiveView(view);
+    if (view === 'home') {
+      navigate('/');
+    }
+  };
+
+  const isHome = activeView === 'home';
+
   return (
-    <div className="main-layout">
-      <ActivityBar activeView={activeView} onViewChange={setActiveView} />
-      
-      <div className="sidebar">
-        {activeView === 'explorer' && (
-          <MenuTreeView
-            onMenuSelect={handleMenuSelect}
-            selectedMenuId={selectedMenu?.id || null}
-          />
-        )}
-        {activeView === 'screens' && (
-          <div className="sidebar-content">
-            <h3>화면 관리</h3>
-            <p>화면 목록이 여기에 표시됩니다</p>
-          </div>
-        )}
-        {activeView === 'home' && (
-          <div className="sidebar-content">
-            <h3>홈</h3>
-            <p>대시보드</p>
-          </div>
-        )}
-        {activeView === 'settings' && (
-          <div className="sidebar-content">
-            <h3>설정</h3>
-            <p>설정 옵션</p>
-          </div>
-        )}
-      </div>
-      
-      <div className="content-wrapper">
-        <div className="header">
-          <div className="breadcrumb">
-            {selectedMenu && (
-              <span>{selectedMenu.name}</span>
-            )}
-          </div>
+    <div className={`main-layout${isHome ? ' home-full' : ''}`}>
+      <ActivityBar activeView={activeView} onViewChange={handleActivityBarClick} />
+      {!isHome && (
+        <div className="sidebar">
+          {activeView === 'explorer' && (
+            <MenuTreeView
+              onMenuSelect={handleMenuSelect}
+              selectedMenuId={selectedMenu?.id || null}
+            />
+          )}
+          {activeView === 'settings' && (
+            <div className="sidebar-content">
+              <h3>설정</h3>
+              <p>설정 옵션</p>
+            </div>
+          )}
         </div>
-        
+      )}
+      <div className={`content-wrapper${isHome ? ' content-full' : ''}`}>
+        {!isHome && (
+          <div className="header">
+            <div className="breadcrumb">
+              {selectedMenu && (
+                <span>{selectedMenu.name}</span>
+              )}
+            </div>
+          </div>
+        )}
         <div className="content-area">
           {children}
         </div>

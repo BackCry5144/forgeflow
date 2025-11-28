@@ -26,6 +26,10 @@ interface PrototypeWizardProps {
 }
 
 export function PrototypeWizard({ screenId, onGenerate }: PrototypeWizardProps) {
+    // 메뉴(screenId) 변경 시 wizard 상태 초기화
+    useEffect(() => {
+      resetWizard();
+    }, [screenId]);
   const { 
     currentStep, 
     steps, 
@@ -36,6 +40,7 @@ export function PrototypeWizard({ screenId, onGenerate }: PrototypeWizardProps) 
     updateStepData,
     saveDraft,
     loadDraft,
+    resetWizard,
     isSaving,
   } = useWizard({ screenId });
 
@@ -62,12 +67,15 @@ export function PrototypeWizard({ screenId, onGenerate }: PrototypeWizardProps) 
 
   const handleRestoreDraft = async () => {
     setShowRestoreDialog(false);
-    await loadDraft();
+    const loaded = await loadDraft();
+    if (!loaded) {
+      resetWizard();
+    }
   };
 
   const handleStartNew = () => {
     setShowRestoreDialog(false);
-    // 새로 시작 (기본 상태 유지)
+    resetWizard();
   };
 
   const handleGenerate = () => {

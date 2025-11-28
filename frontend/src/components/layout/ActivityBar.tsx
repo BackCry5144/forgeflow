@@ -1,5 +1,5 @@
 import React from 'react';
-import { Menu, Settings, FileText, Home } from 'lucide-react';
+import { Menu, Settings, Home } from 'lucide-react';
 
 interface ActivityBarProps {
   activeView: string;
@@ -10,7 +10,6 @@ const ActivityBar: React.FC<ActivityBarProps> = ({ activeView, onViewChange }) =
   const activities = [
     { id: 'home', icon: Home, label: '홈' },
     { id: 'explorer', icon: Menu, label: '메뉴 탐색기' },
-    { id: 'screens', icon: FileText, label: '화면 관리' },    
     { id: 'settings', icon: Settings, label: '설정' },
   ];
 
