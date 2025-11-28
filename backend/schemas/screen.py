@@ -8,10 +8,6 @@ from typing import Optional, List, Dict, Any, TYPE_CHECKING
 from datetime import datetime
 from enum import Enum
 
-if TYPE_CHECKING:
-    from .feedback import FeedbackResponse
-
-
 class ScreenStatusEnum(str, Enum):
     """화면 상태 열거형"""
     DRAFT = "draft"
@@ -60,11 +56,7 @@ class ScreenResponse(ScreenBase):
     model_config = ConfigDict(from_attributes=True)
 
 
-class ScreenDetail(ScreenResponse):
-    """화면 상세 응답 스키마 (피드백 목록 포함)"""
-    feedback_list: List["FeedbackResponse"] = Field(default_factory=list, description="피드백 목록")
-    
-    model_config = ConfigDict(from_attributes=True)
+
 
 
 class ScreenListResponse(BaseModel):

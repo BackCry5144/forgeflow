@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { screenService, aiService, menuService } from '@/services';
-import type { ScreenWithFeedback, Menu } from '@/types';
+import type { Screen, Menu } from '@/types';
 import type { WizardData } from '@/types/wizard.types';
 import { CodePreview } from '@/components/workspace/CodePreview';
 import { DocumentPanel } from '@/components/workspace/DocumentPanel';
@@ -16,7 +16,7 @@ export function ScreenWorkspacePage() {
   const navigate = useNavigate();
   
   
-  const [screen, setScreen] = useState<ScreenWithFeedback | null>(null);
+  const [screen, setScreen] = useState<Screen | null>(null);
   const [menu, setMenu] = useState<Menu | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);

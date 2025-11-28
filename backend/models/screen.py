@@ -120,15 +120,9 @@ class Screen(Base):
         nullable=False,
         comment="수정 시각"
     )
-    
-    # Relationships
+
+    # 관계: Menu
     menu = relationship("Menu", back_populates="screens")
-    feedback_list = relationship(
-        "Feedback", 
-        back_populates="screen", 
-        cascade="all, delete-orphan",
-        lazy="selectin"
-    )
 
     def __repr__(self):
         return f"<Screen(id={self.id}, name='{self.name}', status='{self.status}')>"

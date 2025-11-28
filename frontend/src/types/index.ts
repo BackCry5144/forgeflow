@@ -1,12 +1,9 @@
 export type { Menu, MenuWithScreens, CreateMenuRequest, UpdateMenuRequest } from './menu';
 export type {
   Screen,
-  ScreenWithFeedback,
   ScreenStatus,
   CreateScreenRequest,
-  UpdateScreenRequest,
-  Feedback,
-  CreateFeedbackRequest
+  UpdateScreenRequest
 } from './screen';
 export type {
   GenerateRequest,
