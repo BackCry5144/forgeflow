@@ -4,6 +4,7 @@
 """
 from fastapi import APIRouter, Depends
 from services.cache_service import CacheService, get_cache_service
+from services.ai_service import get_ai_service, AIService
 from typing import Dict, Any
 
 router = APIRouter(prefix="/api/cache", tags=["Cache"])
@@ -20,6 +21,76 @@ async def get_cache_stats(
         dict: 캐시 통계 정보
     """
     return cache_service.get_cache_stats()
+
+
+@router.get("/context-cache/status")
+async def get_context_cache_status(
+    cache_service: CacheService = Depends(get_cache_service)
+) -> Dict[str, Any]:
+    """
+    Gemini Context Cache 상태 조회
+    
+    Returns:
+        dict: Context Cache 상태 정보
+    """
+    from utils.prompt_templates import SYSTEM_PROMPT
+    
+    prompt_length = len(SYSTEM_PROMPT)
+    estimated_tokens = prompt_length // 4  # 대략적인 토큰 수 추정
+    
+    cached_context = cache_service.get_cached_context(SYSTEM_PROMPT)
+    
+    return {
+        "system_prompt": {
+            "length_chars": prompt_length,
+            "estimated_tokens": estimated_tokens,
+            "min_tokens_required": 32768,
+            "meets_requirement": estimated_tokens >= 32768
+        },
+        "cache": {
+            "is_cached": cached_context is not None,
+            "cache_id": cached_context.get('cache_id') if cached_context else None,
+            "created_at": cached_context.get('created_at') if cached_context else None,
+            "expires_at": cached_context.get('expires_at') if cached_context else None,
+        },
+        "redis_available": cache_service.is_available()
+    }
+
+
+@router.post("/context-cache/create")
+async def create_context_cache() -> Dict[str, Any]:
+    """
+    Gemini Context Cache 생성 (수동)
+    
+    SYSTEM_PROMPT를 Gemini에 캐싱합니다.
+    최소 32,768 토큰이 필요합니다.
+    
+    Returns:
+        dict: 생성 결과
+    """
+    ai_service = get_ai_service()
+    
+    try:
+        cache_id = ai_service._create_context_cache()
+        
+        if cache_id:
+            return {
+                "success": True,
+                "cache_id": cache_id,
+                "message": "Context Cache가 성공적으로 생성되었습니다."
+            }
+        else:
+            return {
+                "success": False,
+                "cache_id": None,
+                "message": "Context Cache 생성 실패. SYSTEM_PROMPT가 최소 토큰 요구사항(32,768)을 충족하지 못할 수 있습니다."
+            }
+    except Exception as e:
+        return {
+            "success": False,
+            "cache_id": None,
+            "message": f"Context Cache 생성 중 오류: {str(e)}"
+        }
 
 
 @router.delete("/clear")

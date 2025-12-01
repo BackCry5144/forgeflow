@@ -48,6 +48,11 @@ except Exception:
     pass
 # ============================================================================
 
+# Context Caching 최소 토큰 요구사항 (Gemini 1.5 Pro 기준: 32,768 토큰)
+# 대략 4자 = 1토큰으로 계산하면 약 130,000자 이상 필요
+# 하지만 실제로는 더 적은 양으로도 시도 가능 (API가 거부하면 fallback)
+MIN_TOKENS_FOR_CACHING = 32768
+MIN_CHARS_FOR_CACHING = MIN_TOKENS_FOR_CACHING * 4  # ~130,000자
 
 class AIServiceError(Exception):
     """Structured exception for AI service failures."""
@@ -79,16 +84,111 @@ class AIService:
         self.max_continuation_attempts = 3
         self.max_quota_retries = 10
         self.retry_delay_seconds = 60
+        self.cache_ttl_hours = 1  # Context Cache TTL (1시간)
         self.caching_enabled = self._check_caching_feasibility()
         
         logger.info(f"AI Service initialized: {self.model_name}")
-        logger.info(f"Caching: {'Enabled' if self.caching_enabled else 'Disabled'}")
+        logger.info(f"Context Caching: {'Enabled' if self.caching_enabled else 'Disabled'} (SYSTEM_PROMPT: {len(SYSTEM_PROMPT)} chars)")
     
     def _check_caching_feasibility(self) -> bool:
+        """Context Caching 가능 여부 확인 (최소 토큰 요구사항)"""
         prompt_length = len(SYSTEM_PROMPT)
-        if prompt_length < 600:
+        # Gemini Context Caching은 최소 32,768 토큰 필요
+        # 현재 SYSTEM_PROMPT가 이보다 작으면 일반 ChatSession 사용
+        if prompt_length < 600:  # 너무 작은 경우 비활성화
+            logger.info(f"⚠️ SYSTEM_PROMPT too short for caching ({prompt_length} chars)")
             return False
         return True
+
+    # -------------------------------------------------------------------------
+    # Context Caching 헬퍼
+    # -------------------------------------------------------------------------
+    def _create_context_cache(self) -> Optional[str]:
+        """
+        Google Gemini Context Cache 생성 및 Redis에 저장
+        
+        Returns:
+            str: 캐시 ID (성공 시) 또는 None (실패 시)
+        """
+        try:
+            logger.info("🔄 Creating new Gemini Context Cache...")
+            
+            # Context Cache 생성 (SYSTEM_PROMPT를 캐싱)
+            cached_content = genai.caching.CachedContent.create(
+                model=f"models/{self.model_name}",
+                display_name="forgeflow-system-prompt",
+                contents=[
+                    {
+                        "role": "user",
+                        "parts": [{"text": SYSTEM_PROMPT}]
+                    },
+                    {
+                        "role": "model", 
+                        "parts": [{"text": "시스템 프롬프트를 이해했습니다. React 프로토타입 생성을 시작할 준비가 되었습니다."}]
+                    }
+                ],
+                ttl=timedelta(hours=self.cache_ttl_hours)
+            )
+            
+            cache_id = cached_content.name
+            logger.info(f"✅ Context Cache created: {cache_id}")
+            
+            # Redis에 캐시 ID 저장
+            if self.cache_service.is_available():
+                self.cache_service.set_cached_context(
+                    system_prompt=SYSTEM_PROMPT,
+                    cache_id=cache_id,
+                    ttl_hours=self.cache_ttl_hours
+                )
+            
+            return cache_id
+            
+        except google_exceptions.InvalidArgument as e:
+            # 토큰 수가 부족한 경우 (최소 32,768 토큰 필요)
+            logger.warning(f"⚠️ Context Cache creation failed (token count too low): {e}")
+            return None
+        except Exception as e:
+            logger.error(f"❌ Context Cache creation failed: {e}")
+            return None
+
+    def _get_or_create_cached_model(self):
+        """
+        캐시된 모델 가져오기 또는 새로 생성
+        
+        Returns:
+            tuple: (model, is_cached)
+        """
+        if not self.caching_enabled:
+            return self.model, False
+        
+        # 1. Redis에서 기존 캐시 조회
+        cached_context = self.cache_service.get_cached_context(SYSTEM_PROMPT)
+        
+        if cached_context:
+            try:
+                logger.info(f"✨ Using existing Context Cache: {cached_context['cache_id']}")
+                cached_content = genai.caching.CachedContent.get(cached_context['cache_id'])
+                model_with_cache = genai.GenerativeModel.from_cached_content(cached_content)
+                return model_with_cache, True
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to load cached content: {e}. Creating new cache...")
+                # 캐시가 만료되었거나 유효하지 않음 - Redis에서 삭제
+                self.cache_service.invalidate_cache(SYSTEM_PROMPT)
+        
+        # 2. 새 캐시 생성 시도
+        cache_id = self._create_context_cache()
+        
+        if cache_id:
+            try:
+                cached_content = genai.caching.CachedContent.get(cache_id)
+                model_with_cache = genai.GenerativeModel.from_cached_content(cached_content)
+                return model_with_cache, True
+            except Exception as e:
+                logger.error(f"❌ Failed to use new cache: {e}")
+        
+        # 3. 캐싱 실패 시 일반 모델 반환
+        logger.info("📝 Using standard model (no caching)")
+        return self.model, False
 
     # -------------------------------------------------------------------------
     # 1. Chat 전송 헬퍼 (ChatSession 기반)
@@ -194,30 +294,31 @@ class AIService:
         if not wizard_data:
             raise AIServiceError("missing_wizard_data", "Wizard data required.")
 
-        # 1. ChatSession 초기화
+        # 1. ChatSession 초기화 (Context Caching 적용)
         chat_session = None
-        cached_context = None
+        is_cached = False
         
-        if self.caching_enabled:
-            cached_context = self.cache_service.get_cached_context(SYSTEM_PROMPT)
-
         try:
-            if cached_context:
-                logger.info(f"✨ Using CACHED context: {cached_context['cache_id']}")
-                cached_content = genai.caching.CachedContent(name=cached_context['cache_id'])
-                model_with_cache = genai.GenerativeModel.from_cached_content(cached_content)
-                chat_session = model_with_cache.start_chat()
+            # 캐시된 모델 또는 일반 모델 가져오기
+            model, is_cached = self._get_or_create_cached_model()
+            
+            if is_cached:
+                # 캐시된 모델 사용 - SYSTEM_PROMPT가 이미 포함됨
+                logger.info("✨ Starting chat with CACHED context")
+                chat_session = model.start_chat()
             else:
-                logger.info("🆕 No cache found. Starting fresh chat.")
-                chat_session = self.model.start_chat(history=[
-                    {"role": "user", "parts": [SYSTEM_PROMPT, "Start project."]},
-                    {"role": "model", "parts": ["Ready."]}
+                # 일반 모델 사용 - SYSTEM_PROMPT를 history에 포함
+                logger.info("📝 Starting chat with fresh context")
+                chat_session = model.start_chat(history=[
+                    {"role": "user", "parts": [SYSTEM_PROMPT, "프로젝트를 시작합니다."]},
+                    {"role": "model", "parts": ["네, 준비되었습니다. React 프로토타입 생성을 시작하겠습니다."]}
                 ])
         except Exception as e:
             logger.error(f"❌ Chat setup failed: {e}")
+            # 폴백: 기본 모델로 시작
             chat_session = self.model.start_chat(history=[
-                 {"role": "user", "parts": [SYSTEM_PROMPT, "Start."]},
-                 {"role": "model", "parts": ["OK."]}
+                {"role": "user", "parts": [SYSTEM_PROMPT, "Start."]},
+                {"role": "model", "parts": ["Ready."]}
             ])
 
         # 2. 4단계 프롬프트 준비
