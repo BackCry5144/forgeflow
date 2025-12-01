@@ -8,9 +8,10 @@ interface DocumentTabContentProps {
   onGenerate: () => void;
   onDownload: (content: string, filename: string) => void;
   downloadName: string;
+  needsPrototype?: boolean; // 프로토타입 필요 여부
 }
 
-function DocumentTabContent({ label, icon, doc, status, loading, onGenerate, onDownload, downloadName }: DocumentTabContentProps) {
+function DocumentTabContent({ label, icon, doc, status, loading, onGenerate, onDownload, downloadName, needsPrototype }: DocumentTabContentProps) {
   return (
     !doc ? (
       <Card className="h-full">
@@ -20,6 +21,11 @@ function DocumentTabContent({ label, icon, doc, status, loading, onGenerate, onD
             <div className="text-2xl font-medium mb-3">{label}가 없습니다</div>
             <div className="text-muted-foreground text-lg">
               {status === 'draft' ? '프로토타입을 먼저 생성해주세요.' : null}
+              {needsPrototype && status === 'in_review' && (
+                <div className="text-sm text-amber-600 mt-2">
+                  📸 프로토타입 탭에서 화면을 먼저 확인해주세요
+                </div>
+              )}
             </div>
             {status === 'in_review' && (
               <Button
@@ -28,7 +34,7 @@ function DocumentTabContent({ label, icon, doc, status, loading, onGenerate, onD
                 onClick={onGenerate}
                 disabled={loading}
               >
-                {label} 생성
+                {loading ? '생성 중...' : `${label} 생성`}
               </Button>
             )}
           </div>
@@ -62,12 +68,14 @@ function DocumentTabContent({ label, icon, doc, status, loading, onGenerate, onD
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { FileText, TestTube, BookOpen, Download } from 'lucide-react';
+import { FileText, TestTube, BookOpen, Download, Image } from 'lucide-react';
 
 
-import { useState } from 'react';
+import { useState, RefObject } from 'react';
 import { aiService } from '@/services/aiService';
 import type { GenerateRequest } from '@/types/ai';
+import { useScreenshot } from '@/hooks/useScreenshot';
+import type { CapturedScreenshot } from '@/pages/ScreenWorkspacePage';
 
 
 export function DocumentPanel(props: {
@@ -79,14 +87,20 @@ export function DocumentPanel(props: {
   menuName: string;
   screenName: string;
   wizardData?: any;
+  iframeRef?: RefObject<HTMLIFrameElement>; // 📸 프로토타입 iframe ref
+  prototypeCode?: string; // 프로토타입 코드 (향후 사용)
+  manualScreenshots?: CapturedScreenshot[]; // 📸 수동 캡처 스크린샷
 }) {
-  const { designDoc, testPlan, manual, status, screenId, menuName, screenName, wizardData } = props;
+  const { designDoc, testPlan, manual, status, screenId, menuName, screenName, wizardData, iframeRef, manualScreenshots = [] } = props;
   const [loadingDesign, setLoadingDesign] = useState(false);
   const [loadingTest, setLoadingTest] = useState(false);
   const [loadingManual, setLoadingManual] = useState(false);
   const [localDesignDoc, setLocalDesignDoc] = useState<string | null>(designDoc);
   const [localTestPlan, setLocalTestPlan] = useState<string | null>(testPlan);
   const [localManual, setLocalManual] = useState<string | null>(manual);
+  
+  // 📸 스크린샷 캡처 훅
+  const { captureIframe } = useScreenshot();
 
   // [수정] 파일 다운로드 핸들러
   const downloadDocument = async (content: string, filename: string) => {
@@ -157,21 +171,51 @@ export function DocumentPanel(props: {
 
     setLoadingDesign(true);
     try {
-      // 1. 전송 데이터 준비 (이미지 없이 ID만 전송)
-      console.log("1. 전송 데이터 준비 (이미지 없이 ID만 전송)");
+      // 1. 전송 데이터 준비
+      console.log("1. 전송 데이터 준비");
       const formData = new FormData();
       formData.append('screen_id', screenId.toString());
 
-      // 2. API 호출
-      console.log("2. API 호출");
+      // 📸 2. 메인 화면 스크린샷 캡처
+      console.log("2. 메인 화면 스크린샷 캡처 시도");
+      if (iframeRef?.current) {
+        try {
+          const screenshot = await captureIframe(iframeRef, '메인화면');
+          if (screenshot) {
+            console.log(`   ✅ 스크린샷 캡처 성공: ${screenshot.label} (${screenshot.blob.size} bytes)`);
+            formData.append('screenshots', screenshot.blob, `${screenshot.label}.png`);
+            formData.append('screenshot_labels', screenshot.label);
+          } else {
+            console.warn("   ⚠️ 스크린샷 캡처 실패: null 반환");
+          }
+        } catch (captureError) {
+          console.error("   ❌ 스크린샷 캡처 에러:", captureError);
+          // 캡처 실패해도 설계서 생성은 계속 진행
+        }
+      } else {
+        console.warn("   ⚠️ iframeRef가 없음 - 스크린샷 없이 진행");
+      }
+
+      // 📸 3. 수동 캡처 스크린샷 추가
+      if (manualScreenshots.length > 0) {
+        console.log(`3. 수동 캡처 스크린샷 추가: ${manualScreenshots.length}개`);
+        for (const screenshot of manualScreenshots) {
+          formData.append('screenshots', screenshot.blob, `${screenshot.label}.png`);
+          formData.append('screenshot_labels', screenshot.label);
+          console.log(`   📸 추가: ${screenshot.label} (${screenshot.blob.size} bytes)`);
+        }
+      }
+
+      // 4. API 호출
+      console.log("4. API 호출");
       const response = await fetch(`/api/ai/documents/designDoc`, {
         method: 'POST',
         body: formData,
       });
 
       if (response.ok) {
-        // 3. 파일 다운로드 처리
-        console.log("3. 파일 다운로드 처리");
+        // 5. 파일 다운로드 처리
+        console.log("5. 파일 다운로드 처리");
         const blob = await response.blob();
         
         // 파일명 추출
@@ -190,16 +234,15 @@ export function DocumentPanel(props: {
         document.body.appendChild(a);
         a.click();
         
-        // 4. 뒷정리
+        // 6. 뒷정리
         setTimeout(() => {
             document.body.removeChild(a);
             window.URL.revokeObjectURL(url);
-            console.log("4. 뒷정리 완료");
+            console.log("6. 뒷정리 완료");
         }, 100);
 
-        // 5. UI 상태 업데이트 (성공 표시용)
-        // 실제 내용은 Word 파일에 있지만, UI 상에서 "생성됨" 상태로 바꾸기 위해 텍스트 설정
-        console.log("5. UI 상태 업데이트 (성공 표시용)");
+        // 7. UI 상태 업데이트 (성공 표시용)
+        console.log("7. UI 상태 업데이트 (성공 표시용)");
         setLocalDesignDoc(`### ✅ 설계서 생성 완료\n\n**파일명:** ${filename}\n\n파일이 자동으로 다운로드되었습니다. 다시 다운로드하려면 우측 상단의 버튼을 클릭하세요.`);
         
       } else {
@@ -247,9 +290,15 @@ export function DocumentPanel(props: {
       <div className="flex-1 flex flex-col overflow-hidden">
         <Tabs defaultValue="design" className="flex-1 flex flex-col">
           <TabsList className="w-fit mb-4">
-            <TabsTrigger value="design">
-              <FileText className="mr-2 h-4 w-4" />
+            <TabsTrigger value="design" className="flex items-center gap-2">
+              <FileText className="h-4 w-4" />
               설계서
+              {manualScreenshots.length > 0 && (
+                <span className="bg-blue-100 text-blue-700 text-xs px-1.5 py-0.5 rounded-full flex items-center gap-1">
+                  <Image className="h-3 w-3" />
+                  {manualScreenshots.length}
+                </span>
+              )}
             </TabsTrigger>
             <TabsTrigger value="test">
               <TestTube className="mr-2 h-4 w-4" />

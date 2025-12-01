@@ -10,6 +10,7 @@ export interface Screen {
   design_doc: string | null;
   test_plan: string | null;
   manual: string | null;
+  wizard_data: Record<string, unknown> | null;
   status: ScreenStatus;
   created_at: string;
   updated_at: string;

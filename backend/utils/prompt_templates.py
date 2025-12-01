@@ -92,6 +92,53 @@ const CodeView = ({{ label, value, onClick, placeholder = "검색", required = f
   </div>
 );
 
+3. 📸 스크린샷 캡처 지원 (필수 - 반드시 아래 코드를 그대로 복사):
+
+[중요] 모달 상태 변수명 규칙 (반드시 준수):
+- 첫 번째 모달: isModal0Open, setIsModal0Open
+- 두 번째 모달: isModal1Open, setIsModal1Open  
+- 세 번째 모달: isModal2Open, setIsModal2Open
+- 절대로 다른 이름(예: isProdOrderModalOpen, isSearchModalOpen 등) 사용 금지!
+
+메인 컴포넌트 최상단에 아래 useEffect를 반드시 그대로 추가:
+```javascript
+// 📸 스크린샷 캡처를 위한 PostMessage 리스너 (수정 금지)
+useEffect(() => {{
+  const handleMessage = (event) => {{
+    if (event.data && event.data.type === 'OPEN_MODAL') {{
+      const modalIndex = event.data.modalId.replace('modal-', '');
+      if (modalIndex === '0') setIsModal0Open(true);
+      if (modalIndex === '1') setIsModal1Open(true);
+      if (modalIndex === '2') setIsModal2Open(true);
+      if (modalIndex === '3') setIsModal3Open(true);
+      if (modalIndex === '4') setIsModal4Open(true);
+      setTimeout(() => {{
+        window.parent.postMessage({{ type: 'MODAL_OPENED', modalId: event.data.modalId }}, '*');
+      }}, 300);
+    }}
+    if (event.data && event.data.type === 'CLOSE_MODAL') {{
+      setIsModal0Open(false);
+      setIsModal1Open(false);
+      setIsModal2Open(false);
+      setIsModal3Open(false);
+      setIsModal4Open(false);
+      setTimeout(() => {{
+        window.parent.postMessage({{ type: 'MODAL_CLOSED' }}, '*');
+      }}, 100);
+    }}
+  }};
+  window.addEventListener('message', handleMessage);
+  return () => window.removeEventListener('message', handleMessage);
+}}, []);
+```
+
+4. 모달 상태 선언 (반드시 이 형식 사용):
+```javascript
+const [isModal0Open, setIsModal0Open] = useState(false); // 첫 번째 모달
+const [isModal1Open, setIsModal1Open] = useState(false); // 두 번째 모달
+// 모달 개수만큼 추가 (isModal2Open, isModal3Open...)
+```
+
 # 디자인 컬러
 {get_essential_colors()}
 
@@ -154,6 +201,18 @@ def get_step_2_prompt(wizard_data: dict) -> str:
     interactions = step4.get('interactions', [])
     layout_areas = step2.get('layoutAreas', [])
     
+    # 모달 개수 계산 및 상태 변수 목록 생성
+    modal_interactions = [i for i in interactions if i.get('actionType') == 'open-modal']
+    modal_count = len(modal_interactions)
+    
+    modal_state_declarations = ""
+    if modal_count > 0:
+        modal_state_declarations = "\n**🔴 모달 상태 선언 (반드시 이 이름 사용):**\n```javascript\n"
+        for i, modal in enumerate(modal_interactions):
+            title = modal.get('modalConfig', {}).get('title', f'모달{i}')
+            modal_state_declarations += f"const [isModal{i}Open, setIsModal{i}Open] = useState(false); // {title}\n"
+        modal_state_declarations += "```\n⚠️ 절대로 다른 이름 사용 금지! (isProdOrderModalOpen ❌)"
+    
     return f"""
 # [Step 2/4] 상태(State) 및 비즈니스 로직 구현
 
@@ -161,9 +220,11 @@ def get_step_2_prompt(wizard_data: dict) -> str:
 이전 단계에서 작성한 `export default function ... {{` **바로 뒤에 이어질 내부 로직**만 작성하세요.
 
 **작성할 내용:**
-1. **State 정의:** `searchParams`, `gridData`, `isModalOpen` 등.
-2. **Helper 정의:** `gradeOptions` 등 상수.
-3. **Event Handlers:** `handleSearch`, `handleReset`, `openModal`, `handleSubmit` 등.
+1. **📸 PostMessage 리스너:** SYSTEM_PROMPT의 스크린샷 캡처 useEffect 먼저 추가
+2. **State 정의:** `searchParams`, `gridData` 등.
+{modal_state_declarations}
+3. **Helper 정의:** `gradeOptions` 등 상수.
+4. **Event Handlers:** `handleSearch`, `handleReset`, `handleSubmit` 등.
 
 **참고 정보:**
 - 컴포넌트: {_format_components(components)}
@@ -221,15 +282,32 @@ def get_step_4_prompt(wizard_data: dict) -> str:
     layout_areas = step2.get('layoutAreas', [])
     interactions = step4.get('interactions', [])
     
+    # 모달 개수 계산
+    modal_interactions = [i for i in interactions if i.get('actionType') == 'open-modal']
+    modal_count = len(modal_interactions)
+    
+    # 모달 상태 변수 목록 생성
+    modal_state_list = "\n".join([
+        f"  - isModal{i}Open, setIsModal{i}Open → {modal_interactions[i].get('modalConfig', {}).get('title', f'모달{i}')}"
+        for i in range(modal_count)
+    ]) if modal_count > 0 else "  - (모달 없음)"
+    
     return f"""
 # [Step 4/4] 모달 구현 및 최종 완성
 
 **지시 사항:**
 메인 레이아웃의 끝부분(`</div>` 직전)에 **삽입될 모달들과 파일의 마무리**만 작성하세요.
 
+**🔴 모달 상태 변수명 규칙 (필수 준수):**
+{modal_state_list}
+
+⚠️ 다른 이름 사용 금지! (예: isProdOrderModalOpen ❌, isSearchModalOpen ❌)
+반드시 isModal0Open, isModal1Open... 형식만 사용하세요.
+
 **작성할 내용:**
 1. 요구사항의 **모든 팝업 모달(`Modal`)** JSX 작성.
-   - `isDetailModalOpen` 등의 상태와 연결.
+   - 첫 번째 모달: `{{isModal0Open && (<div className="fixed...">...`
+   - 두 번째 모달: `{{isModal1Open && (<div className="fixed...">...`
 2. 메인 컴포넌트의 `return` 문 닫기 `);`
 3. 메인 컴포넌트 함수 닫기 `}}`
 
@@ -238,7 +316,7 @@ def get_step_4_prompt(wizard_data: dict) -> str:
 
 🔴 **매우 중요 (엄격 준수):**
 - **앞 단계의 코드(메인 UI 등)를 절대 반복하지 마세요.**
-- 오직 `<Modal ...>` 코드들부터 작성하세요.
+- 오직 `{{isModal0Open && (...` 코드들부터 작성하세요.
 - 마지막에 `}}` 로 파일이 문법적으로 완벽하게 닫히도록 하세요.
 """
 

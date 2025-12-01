@@ -138,11 +138,13 @@ export function PrototypeWizard({ screenId, onGenerate }: PrototypeWizardProps) 
               <FolderOpen className="w-5 h-5 text-blue-600" />
               임시저장된 데이터 발견
             </AlertDialogTitle>
-            <AlertDialogDescription className="space-y-2">
-              <p>이 화면에 이전에 작업하던 임시저장 데이터가 있습니다.</p>
-              <p className="font-medium text-foreground">
-                임시저장 데이터를 불러와서 이어서 작업하시겠습니까?
-              </p>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <span className="block">이 화면에 이전에 작업하던 임시저장 데이터가 있습니다.</span>
+                <span className="block font-medium text-foreground">
+                  임시저장 데이터를 불러와서 이어서 작업하시겠습니까?
+                </span>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

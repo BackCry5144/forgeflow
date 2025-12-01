@@ -84,7 +84,7 @@ npm run dev
 ## 📦 프로젝트 구조
 
 ```
-ForgeFlow_Lite/
+ForgeFlow/
 ├── backend/          # Python FastAPI 백엔드
 │   ├── main.py              # 앱 엔트리포인트
 │   ├── routers/             # API 라우터
