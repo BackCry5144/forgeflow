@@ -1,8 +1,8 @@
 # ForgeFlow
 
-**버전**: 3.0  
+**버전**: 3.1  
 **Phase**: 6 - Production Ready ✅  
-**최종 업데이트**: 2025-12-01
+**최종 업데이트**: 2025-12-04
 
 AI 기반 UI 프로토타입 생성 및 산출물 자동화 시스템 (Google Gemini 1.5 Pro)
 
@@ -10,14 +10,25 @@ AI 기반 UI 프로토타입 생성 및 산출물 자동화 시스템 (Google Ge
 
 ## 🎯 주요 기능
 
+### 핵심 기능
 - ✨ **Step-by-Step Wizard**: 5단계 마법사로 화면 요구사항을 체계적으로 수집
 - 🤖 **4-Stage LLM Generation**: 토큰 한계를 극복하는 4단계 분할 프롬프트 전략
-- 📄 **자동 산출물 생성**: Word 설계서, 테스트 계획서, 사용자 매뉴얼 자동 생성
+- 📸 **Auto-Capture 스크린샷**: 프로토타입 화면 및 모달 자동 캡처 기능
+- 📄 **자동 산출물 생성**: Word 설계서 자동 생성 (스크린샷 포함)
+
+### 생성 엔진
 - 🔄 **Continuation 재시도**: 토큰 초과 시 자동 이어받기 (MAX_TOKENS 대응)
+- ⏳ **실시간 진행률**: 백그라운드 생성 + 폴링 기반 상태 추적
+- 🔢 **Modal State 정규화**: `isModal0Open`, `isModal1Open` 등 일관된 모달 상태 명명
+
+### 데이터 관리
 - 💾 **임시저장/복원**: Wizard 데이터 임시저장 및 복원
-- ⏳ **실시간 진행률**: AI 생성 진행률 실시간 표시
-- 🗄️ **Context Caching**: Redis 기반 시스템 프롬프트 캐싱 (API 비용 절감)
 - 📊 **CSV 일괄 등록**: 메뉴 데이터 CSV 파일로 일괄 업로드
+- 🗄️ **DB 기반 문서 저장**: 생성된 설계서 DB 저장 및 재다운로드
+
+### 캐싱 & 최적화
+- 🗄️ **Context Caching**: Redis 기반 시스템 프롬프트 캐싱 (API 비용 절감)
+- ⚡ **Gemini Context Cache**: 32,768+ 토큰 캐싱 준비 (향후 RAG 확장)
 
 ---
 
@@ -117,29 +128,46 @@ ForgeFlow/
 
 ---
 
-## 📊 API 엔드포인트 (총 15개)
+## 📊 API 엔드포인트 (총 20개)
 
-### 메뉴 관리 (5개)
-- `POST /api/menus` - 메뉴 생성
-- `POST /api/menus/import` - CSV 일괄 업로드
-- `GET /api/menus` - 메뉴 목록 조회
-- `GET /api/menus/{id}` - 메뉴 상세 조회
-- `PUT /api/menus/{id}` - 메뉴 수정
-- `DELETE /api/menus/{id}` - 메뉴 삭제
+### 메뉴 관리 (6개)
+| Method | Endpoint | 설명 |
+|--------|----------|------|
+| `POST` | `/api/menus` | 메뉴 생성 |
+| `POST` | `/api/menus/import` | CSV 일괄 업로드 |
+| `GET` | `/api/menus` | 메뉴 목록 조회 |
+| `GET` | `/api/menus/{id}` | 메뉴 상세 조회 |
+| `PUT` | `/api/menus/{id}` | 메뉴 수정 |
+| `DELETE` | `/api/menus/{id}` | 메뉴 삭제 |
 
-### 화면 관리 (6개)
-- `POST /api/screens` - 화면 생성
-- `GET /api/screens` - 화면 목록 조회 (menu_id 필터)
-- `GET /api/screens/{id}` - 화면 상세 조회
-- `PUT /api/screens/{id}` - 화면 수정
-- `DELETE /api/screens/{id}` - 화면 삭제
-- `POST /api/screens/{id}/approve` - 화면 승인
-- `POST /api/screens/{id}/feedback` - 피드백 추가
+### 화면 관리 (5개)
+| Method | Endpoint | 설명 |
+|--------|----------|------|
+| `POST` | `/api/screens` | 화면 생성 |
+| `GET` | `/api/screens` | 화면 목록 조회 (menu_id 필터) |
+| `GET` | `/api/screens/{id}` | 화면 상세 조회 |
+| `PUT` | `/api/screens/{id}` | 화면 수정 |
+| `DELETE` | `/api/screens/{id}` | 화면 삭제 |
 
-### AI 생성 (3개)
-- `POST /api/ai/generate` - 프로토타입 + 설계서 생성
-- `POST /api/ai/regenerate` - 피드백 기반 재생성
-- `POST /api/ai/generate-documents` - 산출물 생성 (테스트계획, 매뉴얼)
+### AI 생성 (6개)
+| Method | Endpoint | 설명 |
+|--------|----------|------|
+| `POST` | `/api/ai/generate` | 프로토타입 생성 (비동기) |
+| `GET` | `/api/ai/status/{screen_id}` | 생성 진행 상황 조회 (폴링용) |
+| `POST` | `/api/ai/documents/designDoc` | 설계서(Word) 생성 + 스크린샷 |
+| `GET` | `/api/ai/screens/{id}/documents/design/download` | 저장된 설계서 다운로드 |
+| `PUT` | `/api/ai/screens/{id}/wizard-draft` | Wizard 임시저장 |
+| `GET` | `/api/ai/screens/{id}/wizard-draft` | Wizard 불러오기 |
+
+### 캐시 관리 (6개)
+| Method | Endpoint | 설명 |
+|--------|----------|------|
+| `GET` | `/api/cache/stats` | 캐시 통계 조회 |
+| `GET` | `/api/cache/context-cache/status` | Context Cache 상태 조회 |
+| `POST` | `/api/cache/context-cache/create` | Context Cache 수동 생성 |
+| `DELETE` | `/api/cache/clear` | 모든 캐시 삭제 |
+| `DELETE` | `/api/cache/invalidate` | SYSTEM_PROMPT 캐시 무효화 |
+| `POST` | `/api/cache/test` | 디자인 토큰 캐시 테스트 |
 
 **상세 API 문서**: http://localhost:8000/docs
 
@@ -203,6 +231,16 @@ ForgeFlow의 핵심 기능은 **5단계 Wizard**를 통해 화면 요구사항�
 - **Trigger Events**: `click`, `double-click`, `row-click`, `change`, `submit`
 - **Actions**: `fetch-data`, `submit`, `clear`, `open-modal`, `validate`, `navigate`
 - **Modal Types**: `form` (입력폼), `detail` (상세정보), `confirm` (확인대화), `custom`
+
+### 모달 상태 명명 규칙 (v3.1)
+모달 상태는 인덱스 기반으로 자동 생성됩니다:
+```javascript
+// 첫 번째 모달: isModal0Open
+// 두 번째 모달: isModal1Open
+// N번째 모달: isModal{N-1}Open
+const [isModal0Open, setIsModal0Open] = useState(false);
+const [isModal1Open, setIsModal1Open] = useState(false);
+```
 
 ---
 
@@ -366,14 +404,10 @@ async def _send_chat_with_retry(self, chat_session, prompt, operation_name):
 
 ---
 
-## 💾 Context Caching (Redis)
+## 💾 Context Caching (Redis + Gemini)
 
-### 목적: API 비용 절감
-
-SYSTEM_PROMPT는 모든 요청에서 동일하게 사용됩니다.  
-Redis에 캐싱하여 중복 전송을 방지하고 API 비용을 절감합니다.
-
-### 캐싱 흐름
+### Redis 기반 캐싱
+SYSTEM_PROMPT의 해시값을 기반으로 Redis에 캐시 정보를 저장합니다.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -392,6 +426,27 @@ Redis에 캐싱하여 중복 전송을 방지하고 API 비용을 절감합니�
 └─────────────────────────────────────────────────────────────┘
 ```
 
+### Gemini Context Caching (v3.1)
+Google Gemini API의 Context Caching 기능을 활용하여 비용을 절감합니다.
+
+| 항목 | 현재 상태 | 목표 |
+|------|----------|------|
+| SYSTEM_PROMPT 토큰 | ~2,000 | ~40,000+ (RAG 확장 시) |
+| 최소 필요 토큰 | 32,768 | - |
+| 비용 절감율 | - | 최대 75% (캐시 적용 시) |
+
+### 캐시 관리 API
+```bash
+# 캐시 상태 확인
+curl http://localhost:8000/api/cache/context-cache/status
+
+# 캐시 수동 생성
+curl -X POST http://localhost:8000/api/cache/context-cache/create
+
+# 캐시 무효화 (SYSTEM_PROMPT 변경 시)
+curl -X DELETE http://localhost:8000/api/cache/invalidate
+```
+
 ---
 
 ## 📄 자동 산출물 생성
@@ -408,7 +463,7 @@ Wizard 데이터와 생성된 React 코드를 분석하여 Word 설계서를 자
 │  [Inputs]                                                    │
 │  • wizard_data (5단계 수집 데이터)                           │
 │  • prototype_html (생성된 React 코드)                        │
-│  • screenshots (선택)                                        │
+│  • screenshots[] (자동 캡처된 화면들)                        │
 │            ↓                                                 │
 │  [LLM Analysis]                                              │
 │  • 코드에서 State, Handler, Layout 정보 추출                 │
@@ -422,9 +477,38 @@ Wizard 데이터와 생성된 React 코드를 분석하여 Word 설계서를 자
 │  • {{TABLE:STATE}}, {{TABLE:EVENT}} 테이블                   │
 │            ↓                                                 │
 │  [Output]                                                    │
-│  • Word 파일 (BytesIO)                                       │
+│  • Word 파일 (BytesIO) → DB 저장 + 다운로드                  │
 │                                                              │
 └─────────────────────────────────────────────────────────────┘
+```
+
+### 스크린샷 자동 캡처 (v3.1)
+
+프로토타입 생성 후 **Auto-Capture** 기능으로 화면과 모달을 자동 캡처합니다.
+
+```typescript
+// 캡처 순서
+1. 메인 화면 (main)
+2. 모달 0 (modal-0)
+3. 모달 1 (modal-1)
+...
+N. 모달 N-1 (modal-{N-1})
+```
+
+### DB 저장 및 재다운로드
+생성된 설계서는 DB에 바이너리로 저장되며, 이후 재다운로드가 가능합니다.
+
+```bash
+# 설계서 생성 (스크린샷 포함)
+curl -X POST http://localhost:8000/api/ai/documents/designDoc \
+  -F "screen_id=1" \
+  -F "screenshots=@main.png" \
+  -F "screenshots=@modal-0.png" \
+  -F "screenshot_labels=메인 화면" \
+  -F "screenshot_labels=상세 모달"
+
+# 저장된 설계서 다운로드
+curl http://localhost:8000/api/ai/screens/1/documents/design/download
 ```
 
 ---
@@ -449,10 +533,15 @@ CREATE TABLE screens (
     description TEXT,
     prompt TEXT,
     prototype_html TEXT,
-    design_doc TEXT,
-    test_plan TEXT,
-    manual TEXT,
+    design_doc BYTEA,                    -- Word 파일 바이너리 저장 (v3.1)
+    wizard_data JSONB,                   -- Wizard 데이터 저장
     status VARCHAR(50) DEFAULT 'draft',
+    -- 생성 상태 추적 (v3.1)
+    generation_status VARCHAR(50) DEFAULT 'idle',
+    generation_progress INTEGER DEFAULT 0,
+    generation_message TEXT,
+    generation_step INTEGER DEFAULT 0,
+    retry_count INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
 );
@@ -465,6 +554,18 @@ CREATE TABLE feedback (
     created_at TIMESTAMP DEFAULT NOW()
 );
 ```
+
+### 생성 상태 (GenerationStatus)
+| 값 | 설명 |
+|---|---|
+| `idle` | 생성 전 또는 완료 후 |
+| `saving_wizard` | Wizard 데이터 저장 중 |
+| `requesting_ai` | AI API 요청 중 |
+| `waiting_quota` | 할당량 대기 중 (재시도) |
+| `generating` | 코드 생성 중 |
+| `validating` | 검증 중 |
+| `completed` | 완료 |
+| `failed` | 실패 |
 
 ---
 
@@ -521,20 +622,25 @@ curl -X POST http://localhost:8000/api/ai/generate `
 ### 2. 화면 생성 및 프로토타입 생성
 1. 메뉴 선택 → "화면 추가" 클릭
 2. 화면 정보 입력 (이름, 설명)
-3. 프롬프트 입력 (예: "로그인 폼이 있는 화면")
-4. "프로토타입 생성" 클릭
-5. 15-20초 대기 → HTML 프로토타입 + 설계서 생성
+3. **5단계 Wizard** 순서대로 진행:
+   - Step 1: 화면 개요 입력
+   - Step 2: 레이아웃 선택
+   - Step 3: 컴포넌트 배치
+   - Step 4: 인터랙션 정의
+   - Step 5: 검토 및 생성
+4. "프로토타입 생성" 클릭 → 진행률 모달 표시
+5. 15-20초 대기 → HTML 프로토타입 생성 완료
 
-### 3. 피드백 및 재생성
-1. 프로토타입 확인
-2. 좌측 패널에서 피드백 입력 (예: "버튼 크기 키워주세요")
-3. "재생성" 클릭 → 피드백 반영된 새 프로토타입 생성
+### 3. 설계서 생성 (v3.1)
+1. 프로토타입 생성 완료 후
+2. "설계서 생성" 버튼 클릭
+3. **Auto-Capture**가 메인 화면 + 모달 자동 캡처
+4. LLM이 코드 분석 → Word 설계서 생성
+5. 자동 다운로드 + DB 저장
 
-### 4. 승인 및 산출물 생성
-1. 프로토타입 만족 시 "설계 승인" 클릭
-2. "산출물 생성" 클릭
-3. 테스트 계획서, 사용자 매뉴얼 자동 생성
-4. 각 문서 다운로드 (Markdown)
+### 4. 임시저장 & 복원
+- **임시저장**: Wizard 작업 중 "임시저장" 클릭
+- **복원**: 화면 선택 시 저장된 Wizard 데이터 자동 로드
 
 ---
 
@@ -651,27 +757,36 @@ docker-compose restart postgres
 
 ## 🔮 향후 로드맵
 
-### v3.1: AI 성능 최적화
-- 더 정교한 프롬프트 튜닝
-- 다양한 레이아웃 템플릿 추가
-- 컴포넌트 라이브러리 확장
+### v3.2: RAG + Context Caching 고도화
+- ChromaDB 기반 Knowledge Base 구축
+- SYSTEM_PROMPT 확장 (35,000+ 토큰)
+- 컴포넌트/레이아웃 예제 라이브러리
+- Few-Shot Learning 적용
 
-### v3.2: 사용자 경험 개선
-- 실시간 프리뷰 Hot Reload
-- 버전 히스토리 및 Diff 뷰
-- 다중 화면 비교 기능
+### v3.3: Smart Refinement
+- Code Chunking (블록 기반 분해)
+- Semantic Routing (수정 대상 자동 식별)
+- 부분 재생성 (Surgical Update)
 
 ### v4.0: 고급 기능
-- RAG (ChromaDB) 통합 - 기존 코드 학습
-- PPT/Excel 산출물 지원
+- LangChain Agent 통합
+- PyTorch 기반 시각적 QA 모델
+- n8n 워크플로우 자동화
+- MCP (Model Context Protocol) 서버
+
+### 장기 계획
 - 협업 기능 (실시간 편집)
 - 다국어 지원
+- PPT/Excel 산출물 지원
+- Agentic AI (자율 테스트 실행)
 
 ---
 
 ## 📚 관련 문서
 
-- [LLM 시스템 개요](01.Docs/LLM_SYSTEM_OVERVIEW_ko.md)
-- [프롬프트 전략 상세](01.Docs/Prompt_Steragy.md)
-- [개발 계획](01.Docs/ForgeFlow_Lite_개발계획.md)
-- [n8n Context Cache](01.Docs/n8n_ContextCache.md)
+- [ForgeFlow 마스터플랜](01.Docs/ForgeFlow_MasterPlan.md) - 종합 업그레이드 로드맵
+- [RAG + Context Caching 계획](01.Docs/RAG_Context_Caching_Plan.md) - 하이브리드 전략
+- [LLM 시스템 개요](01.Docs/LLM_SYSTEM_OVERVIEW_ko.md) - 시스템 아키텍처
+- [프롬프트 전략 상세](01.Docs/Prompt_Steragy.md) - 프롬프트 엔지니어링
+- [개발 계획](01.Docs/ForgeFlow_Lite_개발계획.md) - 개발 로드맵
+- [n8n Context Cache](01.Docs/n8n_ContextCache.md) - n8n 통합 전략
