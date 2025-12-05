@@ -18,7 +18,7 @@ load_dotenv()
 from models import Base, engine, init_db
 
 # Routers import
-from routers import menus_router, screens_router
+from routers import menus_router, screens_router, resources_router
 from routers.ai import router as ai_router
 from routers.cache import router as cache_router
 
@@ -46,6 +46,7 @@ app.include_router(menus_router)
 app.include_router(screens_router)
 app.include_router(ai_router)  # Phase 2: AI 라우터 추가
 app.include_router(cache_router)  # Cache 관리 라우터
+app.include_router(resources_router)  # Wizard 리소스 관리 라우터
 
 # 정적 파일 서빙 (배포 시 프론트엔드)
 # static 폴더가 있으면 마운트

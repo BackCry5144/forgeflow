@@ -119,6 +119,54 @@
   margin: 0 0 8px 0;
 }
 
+.sidebar-title {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  margin: 0 0 16px 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-medium);
+}
+
+/* Settings Menu */
+.settings-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.settings-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-primary);
+  text-align: left;
+  transition: all 0.2s ease;
+}
+
+.settings-menu-item:hover {
+  background-color: var(--accent-light);
+  color: var(--accent-primary);
+}
+
+.settings-menu-item svg {
+  color: var(--icon-default);
+  flex-shrink: 0;
+}
+
+.settings-menu-item:hover svg {
+  color: var(--accent-primary);
+}
+
 /* Menu Tree View */
 .menu-tree-view {
   display: flex;

@@ -1,14 +1,16 @@
 ﻿import { Step3Data, Component, ComponentType, LayoutArea } from '@/types/wizard.types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, X, Layout, Search, ChevronDown, ChevronRight, CheckCircle2 } from 'lucide-react';
-import { useState } from 'react';
+import { Plus, X, Layout, Search, ChevronDown, ChevronRight, CheckCircle2, Loader2 } from 'lucide-react';
+import { useState, useMemo } from 'react';
 import { 
   COMPONENT_LIBRARY, 
   COMPONENT_CATEGORIES, 
   ComponentCategory,
   getComponentDefinition 
 } from '@/data/componentLibrary';
+import { useResourcesFetch } from '@/hooks/useResources';
+import { getIconComponent } from '@/utils/iconMapper';
 
 interface Step3ComponentsProps {
   data: Step3Data;
@@ -17,6 +19,39 @@ interface Step3ComponentsProps {
 }
 
 export function Step3Components({ data, onChange, layoutAreas }: Step3ComponentsProps) {
+  // 동적 데이터 로드 (API에서)
+  const { components: dbComponents, loading } = useResourcesFetch();
+  
+  // DB 데이터가 있으면 사용, 없으면 하드코딩 fallback
+  const useDbData = dbComponents.length > 0;
+  
+  // 컴포넌트 라이브러리 결정
+  const componentLibrary = useMemo(() => {
+    if (useDbData) {
+      return dbComponents.map(c => ({
+        type: c.id as ComponentType,
+        name: c.name,
+        description: c.description || '',
+        icon: getIconComponent(c.icon),
+        category: c.category as ComponentCategory,
+      }));
+    }
+    return COMPONENT_LIBRARY;
+  }, [dbComponents, useDbData]);
+
+  // 카테고리 목록 생성
+  const categories = useMemo(() => {
+    if (useDbData) {
+      const uniqueCategories = [...new Set(dbComponents.map(c => c.category))];
+      return uniqueCategories.map(cat => ({
+        id: cat as ComponentCategory,
+        name: cat === 'form' ? 'Form Controls' : cat === 'data-display' ? 'Data Display' : 'Layout',
+        description: ''
+      }));
+    }
+    return COMPONENT_CATEGORIES;
+  }, [dbComponents, useDbData]);
+
   const [selectedType, setSelectedType] = useState<ComponentType>('button');
   const [label, setLabel] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -24,6 +59,15 @@ export function Step3Components({ data, onChange, layoutAreas }: Step3Components
   const [selectedCategory, setSelectedCategory] = useState<ComponentCategory | null>(null);
 
   const selectedArea = layoutAreas.find(area => area.id === data.selectedAreaId);
+
+  // 컴포넌트 정의 조회 (DB 또는 하드코딩)
+  const getCompDef = (type: ComponentType) => {
+    if (useDbData) {
+      const dbComp = componentLibrary.find(c => c.type === type);
+      return dbComp;
+    }
+    return getComponentDefinition(type);
+  };
 
   const handleSelectArea = (areaId: string) => {
     onChange({ ...data, selectedAreaId: areaId });
@@ -58,11 +102,11 @@ export function Step3Components({ data, onChange, layoutAreas }: Step3Components
     return acc;
   }, {} as Record<string, Component[]>);
 
-  // 컴포넌트 필터링 로직
-  const filteredComponents = COMPONENT_LIBRARY.filter(comp => {
+  // 컴포넌트 필터링 로직 (동적 데이터 사용)
+  const filteredComponents = componentLibrary.filter(comp => {
     const matchesSearch = searchQuery === '' || 
       comp.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      comp.description.toLowerCase().includes(searchQuery.toLowerCase());
+      (comp.description && comp.description.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesCategory = !selectedCategory || comp.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
@@ -76,11 +120,28 @@ export function Step3Components({ data, onChange, layoutAreas }: Step3Components
     );
   };
 
+  // 로딩 상태
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+        <span className="ml-2 text-gray-600">컴포넌트 로딩 중...</span>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <div className="text-center mb-8">
         <h2 className="text-3xl font-bold text-gray-900">컴포넌트를 배치하세요</h2>
-        <p className="mt-2 text-gray-600">영역을 선택하고 필요한 컴포넌트를 추가합니다</p>
+        <p className="mt-2 text-gray-600">
+          영역을 선택하고 필요한 컴포넌트를 추가합니다
+          {useDbData && (
+            <span className="ml-2 px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded">
+              DB 데이터 사용 중
+            </span>
+          )}
+        </p>
       </div>
 
       {/* 상단: 레이아웃 영역 (전체 너비) */}
@@ -132,7 +193,7 @@ export function Step3Components({ data, onChange, layoutAreas }: Step3Components
                   {area.suggestedComponents && area.suggestedComponents.length > 0 && (
                     <div className="flex gap-1 flex-wrap">
                       {area.suggestedComponents.slice(0, 6).map(type => {
-                        const compDef = getComponentDefinition(type);
+                        const compDef = getCompDef(type as ComponentType);
                         if (!compDef) return null;
                         const Icon = compDef.icon;
                         return (
@@ -188,10 +249,10 @@ export function Step3Components({ data, onChange, layoutAreas }: Step3Components
                     : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 }`}
               >
-                전체 ({COMPONENT_LIBRARY.length})
+                전체 ({componentLibrary.length})
               </button>
-              {COMPONENT_CATEGORIES.map(cat => {
-                const count = COMPONENT_LIBRARY.filter(c => c.category === cat.id).length;
+              {categories.map(cat => {
+                const count = componentLibrary.filter(c => c.category === cat.id).length;
                 return (
                   <button
                     key={cat.id}
@@ -210,7 +271,7 @@ export function Step3Components({ data, onChange, layoutAreas }: Step3Components
 
             {/* 카테고리별 아코디언 */}
             <div className="space-y-2 max-h-[500px] overflow-y-auto">
-              {COMPONENT_CATEGORIES.map(category => {
+              {categories.map(category => {
                 const categoryComponents = filteredComponents.filter(c => c.category === category.id);
                 if (categoryComponents.length === 0) return null;
                 

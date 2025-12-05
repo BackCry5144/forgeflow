@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { LayoutGrid, Layers, Zap } from 'lucide-react';
 import ActivityBar from './ActivityBar';
 import MenuTreeView from './MenuTreeView';
 import { menuService, screenService } from '@/services';
@@ -59,8 +60,30 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           )}
           {activeView === 'settings' && (
             <div className="sidebar-content">
-              <h3>설정</h3>
-              <p>설정 옵션</p>
+              <h3 className="sidebar-title">설정</h3>
+              <div className="settings-menu">
+                <button
+                  className="settings-menu-item"
+                  onClick={() => navigate('/admin/resources?tab=layouts')}
+                >
+                  <LayoutGrid size={18} />
+                  <span>레이아웃 관리</span>
+                </button>
+                <button
+                  className="settings-menu-item"
+                  onClick={() => navigate('/admin/resources?tab=components')}
+                >
+                  <Layers size={18} />
+                  <span>컴포넌트 관리</span>
+                </button>
+                <button
+                  className="settings-menu-item"
+                  onClick={() => navigate('/admin/resources?tab=actions')}
+                >
+                  <Zap size={18} />
+                  <span>액션 관리</span>
+                </button>
+              </div>
             </div>
           )}
         </div>
