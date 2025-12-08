@@ -1,6 +1,6 @@
 ﻿import { Step2Data, LayoutType, ComponentType } from '@/types/wizard.types';
 import { Card } from '@/components/ui/card';
-import { LayoutPreview } from '../LayoutPreview';
+import { LayoutPreview } from '@/components/ui/layout-preview';
 import { LAYOUT_TEMPLATES, LAYOUT_AREAS } from '@/data/layoutTemplates';
 import { cn } from '@/lib/utils';
 import { useResourcesFetch } from '@/hooks/useResources';
@@ -113,8 +113,8 @@ export function Step2Layout({ data, onChange }: Step2LayoutProps) {
             </div>
 
             <div className="p-6">
-              <div className="mb-4 bg-white rounded-lg border border-gray-200 p-4 flex items-center justify-center h-[180px]">
-                <LayoutPreview type={layout.id} className="w-full h-full" />
+              <div className="mb-4 bg-white rounded-lg border border-gray-200 overflow-hidden h-[180px]">
+                <LayoutPreview layoutId={layout.id} height="h-full" />
               </div>
 
               <div>

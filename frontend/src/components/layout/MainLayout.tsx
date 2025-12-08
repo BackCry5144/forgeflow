@@ -64,21 +64,21 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
               <div className="settings-menu">
                 <button
                   className="settings-menu-item"
-                  onClick={() => navigate('/admin/resources?tab=layouts')}
+                  onClick={() => navigate('/admin/layouts')}
                 >
                   <LayoutGrid size={18} />
                   <span>레이아웃 관리</span>
                 </button>
                 <button
                   className="settings-menu-item"
-                  onClick={() => navigate('/admin/resources?tab=components')}
+                  onClick={() => navigate('/admin/components')}
                 >
                   <Layers size={18} />
                   <span>컴포넌트 관리</span>
                 </button>
                 <button
                   className="settings-menu-item"
-                  onClick={() => navigate('/admin/resources?tab=actions')}
+                  onClick={() => navigate('/admin/actions')}
                 >
                   <Zap size={18} />
                   <span>액션 관리</span>

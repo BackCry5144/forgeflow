@@ -5,7 +5,9 @@ import { MenuDetailPage } from './pages/MenuDetailPage';
 import { Toaster } from '@/components/ui/toaster';
 import { ResourcesProvider } from '@/hooks/useResources';
 import HomePage from './pages/HomePage';
-import ResourceManagerPage from './pages/admin/ResourceManagerPage';
+import { LayoutManagerPage } from './pages/admin/LayoutManagerPage';
+import { ComponentManagerPage } from './pages/admin/ComponentManagerPage';
+import { ActionManagerPage } from './pages/admin/ActionManagerPage';
 
 function App() {
   return (
@@ -16,7 +18,9 @@ function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/menu/:menuId" element={<MenuDetailPage />} />
             <Route path="/screen/:screenId" element={<ScreenWorkspacePage />} />
-            <Route path="/admin/resources" element={<ResourceManagerPage />} />
+            <Route path="/admin/layouts" element={<LayoutManagerPage />} />
+            <Route path="/admin/components" element={<ComponentManagerPage />} />
+            <Route path="/admin/actions" element={<ActionManagerPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </MainLayout>

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Plus, X, ArrowRight, Zap, Database, Save, RotateCcw, ExternalLink, CheckCircle, Navigation, AlertCircle } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Plus, X, ArrowRight, Zap, AlertCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -15,23 +15,18 @@ import {
   getTriggerEventDescription,
   isInteractable 
 } from '@/data/componentTriggers';
+import { useResources } from '@/hooks/useResources';
+import { getIconComponent } from '@/utils/iconMapper';
 
-const ACTION_TYPES: Array<{
-  value: ActionType;
-  label: string;
-  icon: React.ElementType;
-  color: string;
-  needsTarget: boolean;
-  needsModalConfig: boolean;
-  description: string;
-}> = [
-  { value: 'fetch-data', label: '데이터 조회', icon: Database, color: 'text-blue-500', needsTarget: true, needsModalConfig: false, description: '대상 영역에 데이터를 조회하여 표시' },
-  { value: 'submit', label: '데이터 저장', icon: Save, color: 'text-green-500', needsTarget: false, needsModalConfig: false, description: '현재 폼 데이터를 저장' },
-  { value: 'clear', label: '초기화', icon: RotateCcw, color: 'text-orange-500', needsTarget: true, needsModalConfig: false, description: '대상 영역의 데이터를 초기화' },
-  { value: 'open-modal', label: '모달 열기', icon: ExternalLink, color: 'text-purple-500', needsTarget: false, needsModalConfig: true, description: '팝업 화면을 엽니다' },
-  { value: 'validate', label: '유효성 검사', icon: CheckCircle, color: 'text-teal-500', needsTarget: true, needsModalConfig: false, description: '대상 영역의 입력값을 검증' },
-  { value: 'navigate', label: '화면 이동', icon: Navigation, color: 'text-indigo-500', needsTarget: false, needsModalConfig: false, description: '다른 화면으로 이동' },
-];
+// 액션에 대상 영역이 필요한지 판단하는 함수
+const needsTargetArea = (actionId: string): boolean => {
+  return ['fetch-data', 'clear', 'validate'].includes(actionId);
+};
+
+// 액션에 모달 설정이 필요한지 판단하는 함수
+const needsModalConfiguration = (actionId: string): boolean => {
+  return ['open-modal'].includes(actionId);
+};
 
 interface Step4InteractionsProps {
   data: Step4Data;
@@ -41,6 +36,9 @@ interface Step4InteractionsProps {
 }
 
 const Step4Interactions: React.FC<Step4InteractionsProps> = ({ data, onChange, components, layoutAreas }) => {
+  // DB에서 액션 목록 가져오기
+  const { actions: dbActions } = useResources();
+  
   const [triggerComponentId, setTriggerComponentId] = useState<string>('');
   const [triggerEvent, setTriggerEvent] = useState<TriggerEventType>('click');
   const [actionType, setActionType] = useState<ActionType>('fetch-data');
@@ -54,19 +52,29 @@ const Step4Interactions: React.FC<Step4InteractionsProps> = ({ data, onChange, c
   const [modalContent, setModalContent] = useState<string>('');
   const [modalFields, setModalFields] = useState<ModalField[]>([]);
 
+  // 활성화된 액션만 필터링하고 정렬
+  const activeActions = useMemo(() => {
+    return dbActions
+      .filter(a => a.is_active)
+      .sort((a, b) => parseInt(a.sort_order || '0') - parseInt(b.sort_order || '0'));
+  }, [dbActions]);
+
   // 인터랙션 가능한 컴포넌트만 필터링
   const interactableComponents = components.filter(c => isInteractable(c.type));
   const selectedComponent = components.find(c => c.id === triggerComponentId);
   const availableEvents = selectedComponent ? getComponentTriggerEvents(selectedComponent.type) : [];
-  const selectedActionType = ACTION_TYPES.find(a => a.value === actionType);
+  const selectedAction = activeActions.find(a => a.id === actionType);
 
   const handleAddInteraction = () => {
     if (!triggerComponentId || !actionType) return;
-    if (selectedActionType?.needsTarget && !targetAreaId) return;
-    if (selectedActionType?.needsModalConfig && !modalTitle.trim()) return;
+    const needsTarget = needsTargetArea(actionType);
+    const needsModal = needsModalConfiguration(actionType);
+    
+    if (needsTarget && !targetAreaId) return;
+    if (needsModal && !modalTitle.trim()) return;
 
     let modalConfig: ModalConfig | undefined;
-    if (selectedActionType?.needsModalConfig) {
+    if (needsModal) {
       modalConfig = {
         id: `modal-${Date.now()}`,
         title: modalTitle,
@@ -82,7 +90,7 @@ const Step4Interactions: React.FC<Step4InteractionsProps> = ({ data, onChange, c
       triggerComponentId,
       triggerEvent,
       actionType,
-      targetAreaId: selectedActionType?.needsTarget ? targetAreaId : undefined,
+      targetAreaId: needsTarget ? targetAreaId : undefined,
       modalConfig,
       description: description.trim() || undefined,
     };
@@ -281,15 +289,17 @@ const Step4Interactions: React.FC<Step4InteractionsProps> = ({ data, onChange, c
               <Label>액션 타입</Label>
               <RadioGroup value={actionType} onValueChange={(v) => setActionType(v as ActionType)}>
                 <div className="space-y-2">
-                  {ACTION_TYPES.map(action => {
-                    const Icon = action.icon;
+                  {activeActions.map(action => {
+                    const Icon = getIconComponent(action.icon || 'Zap');
+                    const categoryColor = action.category === 'data' ? 'text-blue-500' : 
+                                          action.category === 'ui' ? 'text-purple-500' : 'text-green-500';
                     return (
-                      <div key={action.value} className="flex items-start space-x-2 p-3 border rounded-lg hover:bg-gray-50">
-                        <RadioGroupItem value={action.value} id={action.value} />
+                      <div key={action.id} className="flex items-start space-x-2 p-3 border rounded-lg hover:bg-gray-50">
+                        <RadioGroupItem value={action.id} id={action.id} />
                         <div className="flex-1">
-                          <Label htmlFor={action.value} className="flex items-center gap-2 cursor-pointer font-medium">
-                            <Icon className={`w-4 h-4 ${action.color}`} />
-                            {action.label}
+                          <Label htmlFor={action.id} className="flex items-center gap-2 cursor-pointer font-medium">
+                            <Icon className={`w-4 h-4 ${categoryColor}`} />
+                            {action.name}
                           </Label>
                           <p className="text-xs text-gray-500 mt-1">{action.description}</p>
                         </div>
@@ -301,7 +311,7 @@ const Step4Interactions: React.FC<Step4InteractionsProps> = ({ data, onChange, c
             </div>
 
             {/* 4. 대상 영역 (조건부) */}
-            {selectedActionType?.needsTarget && (
+            {needsTargetArea(actionType) && (
               <div className="space-y-2">
                 <Label>대상 영역</Label>
                 <Select value={targetAreaId} onValueChange={setTargetAreaId}>
@@ -330,10 +340,10 @@ const Step4Interactions: React.FC<Step4InteractionsProps> = ({ data, onChange, c
             )}
 
             {/* 5. 모달 설정 (open-modal 선택 시) */}
-            {selectedActionType?.needsModalConfig && (
+            {needsModalConfiguration(actionType) && (
               <div className="space-y-4 p-4 bg-purple-50 rounded-lg border border-purple-200">
                 <div className="flex items-center gap-2 text-sm font-semibold text-purple-900">
-                  <ExternalLink className="w-4 h-4" />
+                  <Zap className="w-4 h-4" />
                   모달 설정
                 </div>
                 
@@ -516,8 +526,8 @@ const Step4Interactions: React.FC<Step4InteractionsProps> = ({ data, onChange, c
               disabled={
                 !triggerComponentId || 
                 !actionType || 
-                (selectedActionType?.needsTarget && !targetAreaId) ||
-                (selectedActionType?.needsModalConfig && !modalTitle.trim())
+                (needsTargetArea(actionType) && !targetAreaId) ||
+                (needsModalConfiguration(actionType) && !modalTitle.trim())
               }
               className="w-full"
             >
@@ -546,8 +556,10 @@ const Step4Interactions: React.FC<Step4InteractionsProps> = ({ data, onChange, c
                 {data.interactions.map(interaction => {
                   const { component: triggerComp, area: triggerArea } = getComponentInfo(interaction.triggerComponentId);
                   const targetArea = getAreaInfo(interaction.targetAreaId);
-                  const actionInfo = ACTION_TYPES.find(a => a.value === interaction.actionType);
-                  const ActionIcon = actionInfo?.icon || Zap;
+                  const actionInfo = activeActions.find(a => a.id === interaction.actionType);
+                  const ActionIcon = getIconComponent(actionInfo?.icon || 'Zap');
+                  const categoryColor = actionInfo?.category === 'data' ? 'text-blue-500' : 
+                                        actionInfo?.category === 'ui' ? 'text-purple-500' : 'text-green-500';
                   const triggerCompDef = triggerComp ? getComponentDefinition(triggerComp.type) : null;
                   const TriggerIcon = triggerCompDef?.icon;
 
@@ -565,9 +577,12 @@ const Step4Interactions: React.FC<Step4InteractionsProps> = ({ data, onChange, c
                               {getTriggerEventLabel(interaction.triggerEvent)}
                             </span>
                             <ArrowRight className="w-4 h-4 text-gray-400" />
-                            <span className={`px-2 py-1 rounded flex items-center gap-1 ${actionInfo?.color.replace('text-', 'bg-').replace('-500', '-100')} ${actionInfo?.color}`}>
+                            <span className={`px-2 py-1 rounded flex items-center gap-1 ${
+                              categoryColor === 'text-blue-500' ? 'bg-blue-100' :
+                              categoryColor === 'text-purple-500' ? 'bg-purple-100' : 'bg-green-100'
+                            } ${categoryColor}`}>
                               <ActionIcon className="w-3 h-3" />
-                              {actionInfo?.label}
+                              {actionInfo?.name || interaction.actionType}
                             </span>
                             {targetArea && (
                               <>
@@ -583,7 +598,7 @@ const Step4Interactions: React.FC<Step4InteractionsProps> = ({ data, onChange, c
                           {interaction.modalConfig && (
                             <div className="ml-1 mb-2 p-2 bg-purple-100 rounded text-xs space-y-1">
                               <div className="font-medium text-purple-900 flex items-center gap-1">
-                                <ExternalLink className="w-3 h-3" />
+                                <Zap className="w-3 h-3" />
                                 모달: {interaction.modalConfig.title}
                               </div>
                               <div className="text-purple-700">

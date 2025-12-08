@@ -1,14 +1,23 @@
 import { WizardData } from '@/types/wizard.types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { CheckCircle2, ExternalLink } from 'lucide-react';
+import { CheckCircle2, Zap } from 'lucide-react';
 import { getTriggerEventLabel } from '@/data/componentTriggers';
 import { getComponentDefinition } from '@/data/componentLibrary';
+import { useResources } from '@/hooks/useResources';
 
 interface Step5ReviewProps {
   data: WizardData;
 }
 
 export function Step5Review({ data }: Step5ReviewProps) {
+  const { actions: dbActions } = useResources();
+  
+  // 액션 이름 가져오기 헬퍼
+  const getActionName = (actionId: string): string => {
+    const action = dbActions.find(a => a.id === actionId);
+    return action?.name || actionId;
+  };
+  
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Header */}
@@ -128,19 +137,14 @@ export function Step5Review({ data }: Step5ReviewProps) {
                           DO
                         </span>
                         <span>
-                          {interaction.actionType === 'fetch-data' ? '데이터 조회' :
-                           interaction.actionType === 'submit' ? '데이터 저장' :
-                           interaction.actionType === 'clear' ? '초기화' :
-                           interaction.actionType === 'open-modal' ? '모달 열기' :
-                           interaction.actionType === 'validate' ? '유효성 검사' :
-                           interaction.actionType === 'navigate' ? '화면 이동' : interaction.actionType}
+                          {getActionName(interaction.actionType)}
                           {targetArea && ` → ${targetArea.name}`}
                         </span>
                       </div>
                       {interaction.modalConfig && (
                         <div className="mt-1 text-xs text-purple-700 bg-purple-100 px-2 py-1 rounded space-y-1">
                           <div className="flex items-center gap-2 font-medium">
-                            <ExternalLink className="w-3 h-3" />
+                            <Zap className="w-3 h-3" />
                             <span>모달: {interaction.modalConfig.title}</span>
                           </div>
                           <div className="flex items-center gap-2 text-purple-600">
