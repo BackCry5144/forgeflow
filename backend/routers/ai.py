@@ -253,6 +253,148 @@ async def generate_design_doc(
         raise HTTPException(status_code=500, detail=f"문서 생성 실패: {str(e)}")
 
 
+# 테스트 계획서 생성
+@router.post("/documents/testPlan")
+async def generate_test_plan(
+    screen_id: int = Form(...),
+    screenshots: List[UploadFile] = File(default=[]),
+    screenshot_labels: List[str] = Form(default=[]),
+    db: Session = Depends(get_db)
+):
+    """
+    테스트 계획서(Word) 생성 및 다운로드
+    """
+    logger.info(f"📥 Test Plan Generation Start: Screen {screen_id}")
+    
+    # 1. DB 조회
+    screen = db.query(Screen).filter(Screen.id == screen_id).first()
+    if not screen:
+        raise HTTPException(status_code=404, detail="Screen not found")
+    
+    if not screen.prototype_html:
+        raise HTTPException(status_code=400, detail="No generated code found. Please generate prototype first.")
+
+    # 2. 이미지 처리
+    processed_images = []
+    for idx, file in enumerate(screenshots):
+        content = await file.read()
+        if content:
+            label = screenshot_labels[idx] if idx < len(screenshot_labels) else f"Image {idx+1}"
+            processed_images.append({"label": label, "bytes": content})
+    
+    logger.info(f"   📸 Images received: {len(processed_images)}")
+
+    # 3. 문서 생성 서비스 호출
+    doc_service = DocumentService()
+    
+    try:
+        docx_buffer = await doc_service.generate_test_plan_doc(
+            screen_name=screen.name,
+            react_code=screen.prototype_html,
+            wizard_data=screen.wizard_data,
+            images=processed_images
+        )
+
+        # DB에 저장
+        file_content = docx_buffer.getvalue()
+        screen.test_plan_doc = file_content
+        db.commit()
+        logger.info(f"💾 Test plan saved to DB ({len(file_content)} bytes)")
+
+        docx_buffer.seek(0)
+        
+        from urllib.parse import quote
+        safe_filename = f"{screen.name}_테스트계획서.docx"
+        quoted_filename = quote(safe_filename)
+
+        logger.info("✅ Test plan generated successfully. Sending response...")
+
+        return StreamingResponse(
+            docx_buffer,
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={
+                "Content-Disposition": f"attachment; filename*=UTF-8''{quoted_filename}"
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"❌ Test plan generation failed: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"테스트 계획서 생성 실패: {str(e)}")
+
+
+# 사용자 매뉴얼 생성
+@router.post("/documents/userManual")
+async def generate_user_manual(
+    screen_id: int = Form(...),
+    screenshots: List[UploadFile] = File(default=[]),
+    screenshot_labels: List[str] = Form(default=[]),
+    db: Session = Depends(get_db)
+):
+    """
+    사용자 매뉴얼(Word) 생성 및 다운로드
+    """
+    logger.info(f"📥 User Manual Generation Start: Screen {screen_id}")
+    
+    # 1. DB 조회
+    screen = db.query(Screen).filter(Screen.id == screen_id).first()
+    if not screen:
+        raise HTTPException(status_code=404, detail="Screen not found")
+    
+    if not screen.prototype_html:
+        raise HTTPException(status_code=400, detail="No generated code found. Please generate prototype first.")
+
+    # 2. 이미지 처리
+    processed_images = []
+    for idx, file in enumerate(screenshots):
+        content = await file.read()
+        if content:
+            label = screenshot_labels[idx] if idx < len(screenshot_labels) else f"Image {idx+1}"
+            processed_images.append({"label": label, "bytes": content})
+    
+    logger.info(f"   📸 Images received: {len(processed_images)}")
+
+    # 3. 문서 생성 서비스 호출
+    doc_service = DocumentService()
+    
+    try:
+        docx_buffer = await doc_service.generate_user_manual_doc(
+            screen_name=screen.name,
+            react_code=screen.prototype_html,
+            wizard_data=screen.wizard_data,
+            images=processed_images
+        )
+
+        # DB에 저장
+        file_content = docx_buffer.getvalue()
+        screen.user_manual_doc = file_content
+        db.commit()
+        logger.info(f"💾 User manual saved to DB ({len(file_content)} bytes)")
+
+        docx_buffer.seek(0)
+        
+        from urllib.parse import quote
+        safe_filename = f"{screen.name}_사용자매뉴얼.docx"
+        quoted_filename = quote(safe_filename)
+
+        logger.info("✅ User manual generated successfully. Sending response...")
+
+        return StreamingResponse(
+            docx_buffer,
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={
+                "Content-Disposition": f"attachment; filename*=UTF-8''{quoted_filename}"
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"❌ User manual generation failed: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"사용자 매뉴얼 생성 실패: {str(e)}")
+
+
 @router.get("/health")
 async def health_check(ai_service: AIService = Depends(get_ai_service)):
     """
@@ -493,6 +635,64 @@ async def download_stored_design_doc(
     
     filename = f"{screen.name}_화면설계서.docx".encode('utf-8').decode('latin-1')
     quoted_filename = quote(filename)
+    
+    return StreamingResponse(
+        file_stream,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quoted_filename}"}
+    )
+
+
+@router.get("/screens/{screen_id}/documents/testPlan/download")
+async def download_stored_test_plan(
+    screen_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    저장된 테스트 계획서 다운로드
+    """
+    screen = db.query(Screen).filter(Screen.id == screen_id).first()
+    if not screen:
+        raise HTTPException(status_code=404, detail="Screen not found")
+        
+    if not screen.test_plan_doc:
+        raise HTTPException(status_code=404, detail="생성된 테스트 계획서가 없습니다. 먼저 생성해주세요.")
+
+    from io import BytesIO
+    file_stream = BytesIO(screen.test_plan_doc)
+    
+    from urllib.parse import quote
+    safe_filename = f"{screen.name}_테스트계획서.docx"
+    quoted_filename = quote(safe_filename)
+    
+    return StreamingResponse(
+        file_stream,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quoted_filename}"}
+    )
+
+
+@router.get("/screens/{screen_id}/documents/userManual/download")
+async def download_stored_user_manual(
+    screen_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    저장된 사용자 매뉴얼 다운로드
+    """
+    screen = db.query(Screen).filter(Screen.id == screen_id).first()
+    if not screen:
+        raise HTTPException(status_code=404, detail="Screen not found")
+        
+    if not screen.user_manual_doc:
+        raise HTTPException(status_code=404, detail="생성된 사용자 매뉴얼이 없습니다. 먼저 생성해주세요.")
+
+    from io import BytesIO
+    file_stream = BytesIO(screen.user_manual_doc)
+    
+    from urllib.parse import quote
+    safe_filename = f"{screen.name}_사용자매뉴얼.docx"
+    quoted_filename = quote(safe_filename)
     
     return StreamingResponse(
         file_stream,

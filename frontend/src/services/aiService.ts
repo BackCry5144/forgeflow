@@ -46,13 +46,55 @@ export const aiService = {
     return response.data;
   },
 
-  async generateTestPlan(data: GenerateRequest): Promise<GenerateResponse> {
-    const response = await apiClient.post<GenerateResponse>('/api/ai/generate_test_plan', data);
+  async generateTestPlan(data: GenerateRequest & {
+    screenshots?: File[];
+    screenshot_labels?: string[];
+  }): Promise<Blob> {
+    const formData = new FormData();
+    formData.append('screen_id', String(data.screen_id));
+    if (data.screenshots) {
+      data.screenshots.forEach((file) => {
+        formData.append('screenshots', file);
+      });
+    }
+    if (data.screenshot_labels) {
+      data.screenshot_labels.forEach((label) => {
+        formData.append('screenshot_labels', label);
+      });
+    }
+
+    const response = await apiClient.post(`/api/ai/documents/testPlan`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      responseType: 'blob',
+    });
     return response.data;
   },
 
-  async generateManual(data: GenerateRequest): Promise<GenerateResponse> {
-    const response = await apiClient.post<GenerateResponse>('/api/ai/generate_manual', data);
+  async generateManual(data: GenerateRequest & {
+    screenshots?: File[];
+    screenshot_labels?: string[];
+  }): Promise<Blob> {
+    const formData = new FormData();
+    formData.append('screen_id', String(data.screen_id));
+    if (data.screenshots) {
+      data.screenshots.forEach((file) => {
+        formData.append('screenshots', file);
+      });
+    }
+    if (data.screenshot_labels) {
+      data.screenshot_labels.forEach((label) => {
+        formData.append('screenshot_labels', label);
+      });
+    }
+
+    const response = await apiClient.post(`/api/ai/documents/userManual`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      responseType: 'blob',
+    });
     return response.data;
   },
 

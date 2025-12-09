@@ -64,8 +64,8 @@ class Screen(Base):
     
     # 산출물
     design_doc = Column(LargeBinary, nullable=True, comment="설계서 (Binary)")
-    test_plan = Column(Text, nullable=True, comment="테스트 계획서 (Markdown)")
-    manual = Column(Text, nullable=True, comment="사용자 매뉴얼 (Markdown)")
+    test_plan_doc = Column(LargeBinary, nullable=True, comment="테스트 계획서 (Binary)")
+    user_manual_doc = Column(LargeBinary, nullable=True, comment="사용자 매뉴얼 (Binary)")
     
     # 상태 관리
     status = Column(
@@ -137,9 +137,9 @@ class Screen(Base):
             "prompt": self.prompt,
             "wizard_data": self.wizard_data,
             "prototype_html": self.prototype_html,
-            "design_doc": None,
-            "test_plan": self.test_plan,
-            "manual": self.manual,
+            "has_design_doc": self.design_doc is not None,
+            "has_test_plan_doc": self.test_plan_doc is not None,
+            "has_user_manual_doc": self.user_manual_doc is not None,
             "status": self.status.value if isinstance(self.status, ScreenStatus) else self.status,
             "generation_status": self.generation_status.value if isinstance(self.generation_status, GenerationStatus) else self.generation_status,
             "generation_progress": self.generation_progress,

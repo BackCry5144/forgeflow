@@ -72,8 +72,6 @@ import { FileText, TestTube, BookOpen, Download, Image } from 'lucide-react';
 
 
 import { useState, RefObject } from 'react';
-import { aiService } from '@/services/aiService';
-import type { GenerateRequest } from '@/types/ai';
 import { useScreenshot } from '@/hooks/useScreenshot';
 import type { CapturedScreenshot } from '@/pages/ScreenWorkspacePage';
 
@@ -91,7 +89,7 @@ export function DocumentPanel(props: {
   prototypeCode?: string; // 프로토타입 코드 (향후 사용)
   manualScreenshots?: CapturedScreenshot[]; // 📸 수동 캡처 스크린샷
 }) {
-  const { designDoc, testPlan, manual, status, screenId, menuName, screenName, wizardData, iframeRef, manualScreenshots = [] } = props;
+  const { designDoc, testPlan, manual, status, screenId, screenName, iframeRef, manualScreenshots = [] } = props;
   const [loadingDesign, setLoadingDesign] = useState(false);
   const [loadingTest, setLoadingTest] = useState(false);
   const [loadingManual, setLoadingManual] = useState(false);
@@ -107,29 +105,39 @@ export function DocumentPanel(props: {
     
     console.info("downloadDocument Start:", filename);
 
-    // 1. 설계서(.docx)인 경우: 서버에서 파일 스트림 받아오기 (GET)
+    // 1. Word 문서(.docx)인 경우: 서버에서 파일 스트림 받아오기 (GET)
     if (filename.endsWith('.docx')) {
       try {
-        // 저장된 파일 다운로드 API 호출
-        const response = await fetch(`/api/ai/screens/${screenId}/documents/design/download`);
+        // 문서 유형에 따른 API 엔드포인트 결정
+        let endpoint = '';
+        if (filename.includes('설계서')) {
+          endpoint = `/api/ai/screens/${screenId}/documents/design/download`;
+        } else if (filename.includes('테스트') || filename.includes('test')) {
+          endpoint = `/api/ai/screens/${screenId}/documents/testPlan/download`;
+        } else if (filename.includes('매뉴얼') || filename.includes('manual')) {
+          endpoint = `/api/ai/screens/${screenId}/documents/userManual/download`;
+        } else {
+          endpoint = `/api/ai/screens/${screenId}/documents/design/download`;
+        }
+
+        const response = await fetch(endpoint);
 
         if (response.ok) {
           const blob = await response.blob();
           const url = window.URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
-          a.download = filename; // 전달받은 파일명 사용
+          a.download = filename;
           document.body.appendChild(a);
           a.click();
 
-          // 메모리 해제 및 요소 제거
           setTimeout(() => {
             document.body.removeChild(a);
             window.URL.revokeObjectURL(url);
           }, 100);
         } else {
           if (response.status === 404) {
-            alert("생성된 설계서가 없습니다. 먼저 '설계서 생성'을 진행해 주세요.");
+            alert("생성된 문서가 없습니다. 먼저 문서 생성을 진행해 주세요.");
           } else {
             alert("파일 다운로드에 실패했습니다. 서버 상태를 확인해 주세요.");
           }
@@ -142,7 +150,6 @@ export function DocumentPanel(props: {
     }
 
     // 2. 그 외 파일(.md 등): 텍스트 기반 다운로드 (기존 로직 유지)
-    // (테스트 계획서나 매뉴얼이 아직 마크다운 방식이라면 이 로직을 탑니다)
     const blob = new Blob([content], { type: 'text/markdown' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -157,12 +164,6 @@ export function DocumentPanel(props: {
     }, 100);
   };
 
-  const generateRequest: GenerateRequest = {
-    screen_id: screenId,
-    menu_name: menuName,
-    screen_name: screenName,
-    wizard_data: wizardData,
-  };
 
   // ✅ [수정] 설계서 생성 및 다운로드 핸들러 (ScreenDetail에서 이사 옴)
   const handleGenerateDesign = async () => {
@@ -259,20 +260,146 @@ export function DocumentPanel(props: {
   };
 
   const handleGenerateTest = async () => {
+    console.log("handleGenerateTest Start");
     setLoadingTest(true);
     try {
-      const res = await aiService.generateTestPlan(generateRequest);
-      setLocalTestPlan(res.design_doc); // If test_plan is returned, use res.test_plan
+      // 1. FormData 준비
+      const formData = new FormData();
+      formData.append('screen_id', screenId.toString());
+
+      // 📸 2. 메인 화면 스크린샷 캡처
+      if (iframeRef?.current) {
+        try {
+          const screenshot = await captureIframe(iframeRef, '메인화면');
+          if (screenshot) {
+            formData.append('screenshots', screenshot.blob, `${screenshot.label}.png`);
+            formData.append('screenshot_labels', screenshot.label);
+          }
+        } catch (captureError) {
+          console.error("스크린샷 캡처 에러:", captureError);
+        }
+      }
+
+      // 📸 3. 수동 캡처 스크린샷 추가
+      if (manualScreenshots.length > 0) {
+        for (const screenshot of manualScreenshots) {
+          formData.append('screenshots', screenshot.blob, `${screenshot.label}.png`);
+          formData.append('screenshot_labels', screenshot.label);
+        }
+      }
+
+      // 4. API 호출
+      const response = await fetch(`/api/ai/documents/testPlan`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        
+        // 파일명 추출
+        const disposition = response.headers.get('Content-Disposition');
+        let filename = `${screenName}_테스트계획서.docx`;
+        if (disposition && disposition.includes('filename=')) {
+          filename = disposition.split('filename=')[1].replace(/["']/g, '');
+          try { filename = decodeURIComponent(filename); } catch(e) {}
+        }
+
+        // 브라우저 다운로드 트리거
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        
+        setTimeout(() => {
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(url);
+        }, 100);
+
+        setLocalTestPlan(`### ✅ 테스트 계획서 생성 완료\n\n**파일명:** ${filename}\n\n파일이 자동으로 다운로드되었습니다.`);
+      } else {
+        const errorText = await response.text();
+        console.error("서버 에러:", errorText);
+        alert("테스트 계획서 생성 실패: " + errorText);
+      }
+    } catch (e) {
+      console.error("에러 발생:", e);
+      alert("오류가 발생했습니다.");
     } finally {
       setLoadingTest(false);
     }
   };
 
   const handleGenerateManual = async () => {
+    console.log("handleGenerateManual Start");
     setLoadingManual(true);
     try {
-      const res = await aiService.generateManual(generateRequest);
-      setLocalManual(res.design_doc); // If manual is returned, use res.manual
+      // 1. FormData 준비
+      const formData = new FormData();
+      formData.append('screen_id', screenId.toString());
+
+      // 📸 2. 메인 화면 스크린샷 캡처
+      if (iframeRef?.current) {
+        try {
+          const screenshot = await captureIframe(iframeRef, '메인화면');
+          if (screenshot) {
+            formData.append('screenshots', screenshot.blob, `${screenshot.label}.png`);
+            formData.append('screenshot_labels', screenshot.label);
+          }
+        } catch (captureError) {
+          console.error("스크린샷 캡처 에러:", captureError);
+        }
+      }
+
+      // 📸 3. 수동 캡처 스크린샷 추가
+      if (manualScreenshots.length > 0) {
+        for (const screenshot of manualScreenshots) {
+          formData.append('screenshots', screenshot.blob, `${screenshot.label}.png`);
+          formData.append('screenshot_labels', screenshot.label);
+        }
+      }
+
+      // 4. API 호출
+      const response = await fetch(`/api/ai/documents/userManual`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        
+        // 파일명 추출
+        const disposition = response.headers.get('Content-Disposition');
+        let filename = `${screenName}_사용자매뉴얼.docx`;
+        if (disposition && disposition.includes('filename=')) {
+          filename = disposition.split('filename=')[1].replace(/["']/g, '');
+          try { filename = decodeURIComponent(filename); } catch(e) {}
+        }
+
+        // 브라우저 다운로드 트리거
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        
+        setTimeout(() => {
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(url);
+        }, 100);
+
+        setLocalManual(`### ✅ 사용자 매뉴얼 생성 완료\n\n**파일명:** ${filename}\n\n파일이 자동으로 다운로드되었습니다.`);
+      } else {
+        const errorText = await response.text();
+        console.error("서버 에러:", errorText);
+        alert("사용자 매뉴얼 생성 실패: " + errorText);
+      }
+    } catch (e) {
+      console.error("에러 발생:", e);
+      alert("오류가 발생했습니다.");
     } finally {
       setLoadingManual(false);
     }
@@ -332,7 +459,7 @@ export function DocumentPanel(props: {
                 loading={loadingTest}
                 onGenerate={handleGenerateTest}
                 onDownload={downloadDocument}
-                downloadName="테스트계획서.md"
+                downloadName="테스트계획서.docx"
               />
             </TabsContent>
 
@@ -345,7 +472,7 @@ export function DocumentPanel(props: {
                 loading={loadingManual}
                 onGenerate={handleGenerateManual}
                 onDownload={downloadDocument}
-                downloadName="사용자매뉴얼.md"
+                downloadName="사용자매뉴얼.docx"
               />
             </TabsContent>
           </div>

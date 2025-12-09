@@ -4,11 +4,35 @@ ForgeFlow - FastAPI Main Application
 Phase 1: 기반 구축
 """
 
+import os
+import ssl
+
+# ============================================================================
+# SSL 인증서 검증 우회 설정 (개발 환경용) - 가장 먼저 설정
+# ============================================================================
+os.environ['GRPC_VERBOSITY'] = 'NONE'
+os.environ['GRPC_TRACE'] = ''
+os.environ['GRPC_ENABLE_FORK_SUPPORT'] = '1'
+os.environ['GRPC_SSL_CIPHER_SUITES'] = 'HIGH+ECDSA'
+os.environ['GRPC_DEFAULT_SSL_ROOTS_FILE_PATH'] = ''
+os.environ['SSL_CERT_FILE'] = ''
+os.environ['REQUESTS_CA_BUNDLE'] = ''
+os.environ['CURL_CA_BUNDLE'] = ''
+os.environ['PYTHONHTTPSVERIFY'] = '0'
+ssl._create_default_https_context = ssl._create_unverified_context
+
+# httpx SSL 검증 비활성화
+try:
+    import httpx
+    httpx._config.DEFAULT_CIPHERS = None
+except Exception:
+    pass
+# ============================================================================
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
-import os
 from dotenv import load_dotenv
 
 # 환경 변수 로드

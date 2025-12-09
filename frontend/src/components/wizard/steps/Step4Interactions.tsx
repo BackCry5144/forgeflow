@@ -63,7 +63,6 @@ const Step4Interactions: React.FC<Step4InteractionsProps> = ({ data, onChange, c
   const interactableComponents = components.filter(c => isInteractable(c.type));
   const selectedComponent = components.find(c => c.id === triggerComponentId);
   const availableEvents = selectedComponent ? getComponentTriggerEvents(selectedComponent.type) : [];
-  const selectedAction = activeActions.find(a => a.id === actionType);
 
   const handleAddInteraction = () => {
     if (!triggerComponentId || !actionType) return;
