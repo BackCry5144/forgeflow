@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 """
 AI 생성 관련 Pydantic 스키마
+
+Pydantic v2에서는 내부 Config 클래스 대신 model_config = ConfigDict(...) 사용
 """
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, Dict, Any
 
 
@@ -14,20 +16,22 @@ class GenerateRequest(BaseModel):
     menu_name: str = Field(..., description="메뉴 이름")
     screen_name: str = Field(..., description="화면 이름")
     
-    class Config:
-        json_schema_extra = {
+    # Pydantic v2: model_config 사용 (기존 class Config 대체)
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "screen_id": 1,
                 "wizard_data": {
                     "step1": {"screenName": "생산 일정", "description": "작업 지시를 계획하고 관리하는 화면"},
-                    "step2": {"selectedLayout": "search-grid", "layoutAreas": [...]},
-                    "step3": {"components": [...]},
-                    "step4": {"interactions": [...]}
+                    "step2": {"selectedLayout": "search-grid", "layoutAreas": []},
+                    "step3": {"components": []},
+                    "step4": {"interactions": []}
                 },
                 "menu_name": "생산 계획",
                 "screen_name": "생산 일정"
             }
         }
+    )
 
 
 class GenerateResponse(BaseModel):
@@ -35,13 +39,15 @@ class GenerateResponse(BaseModel):
     prototype_html: str = Field(..., description="HTML 프로토타입")
     design_doc: Optional[bytes] = Field(None, description="설계서")
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "prototype_html": "<!DOCTYPE html><html>...</html>",
                 "design_doc": None
             }
         }
+    )
+
 
 class GenerateAckResponse(BaseModel):
     """비동기 생성 시작 즉시 반환되는 응답 (폴링으로 진행 상황 추적)"""
@@ -50,8 +56,8 @@ class GenerateAckResponse(BaseModel):
     started: bool = Field(True, description="생성 프로세스 시작 여부")
     previous_prototype_cleared: bool = Field(..., description="기존 프로토타입/프롬프트 초기화 여부")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "screen_id": 132,
                 "message": "프로토타입 생성이 시작되었습니다. 폴링으로 진행 상황을 확인하세요.",
@@ -59,18 +65,20 @@ class GenerateAckResponse(BaseModel):
                 "previous_prototype_cleared": True
             }
         }
+    )
 
 
 class GenerateDocumentsRequest(BaseModel):
     """산출물 생성 요청 (승인 후)"""
     screen_id: int = Field(..., description="화면 ID")
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "screen_id": 1
             }
         }
+    )
 
 
 class GenerateDocumentsResponse(BaseModel):
@@ -79,14 +87,15 @@ class GenerateDocumentsResponse(BaseModel):
     test_plan: str = Field(..., description="테스트 계획서 (Markdown)")
     manual: str = Field(..., description="사용자 매뉴얼 (Markdown)")
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "design_doc": "# 설계서\n## 화면 개요\n...",
                 "test_plan": "# 테스트 계획서\n## TC-001\n...",
                 "manual": "# 사용자 매뉴얼\n## 기능 설명\n..."
             }
         }
+    )
 
 
 class WizardPromptTestRequest(BaseModel):
@@ -98,8 +107,8 @@ class WizardPromptTestRequest(BaseModel):
     layout_type: Optional[str] = Field(None, description="레이아웃 타입 (search-grid, master-detail, dashboard)")
     save_to_db: bool = Field(True, description="DB 저장 여부 (False면 콘솔 출력만)")
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "menu_id": 93,
                 "screen_name": "생산실적 조회",
@@ -107,13 +116,14 @@ class WizardPromptTestRequest(BaseModel):
                 "wizard_data": {
                     "step1": {"screenName": "생산실적 조회", "description": "..."},
                     "step2": {"selectedLayout": "search-grid"},
-                    "step3": {"components": [...]},
-                    "step4": {"interactions": [...]}
+                    "step3": {"components": []},
+                    "step4": {"interactions": []}
                 },
                 "layout_type": "search-grid",
                 "save_to_db": True
             }
         }
+    )
 
 
 class WizardPromptTestResponse(BaseModel):
@@ -126,18 +136,19 @@ class WizardPromptTestResponse(BaseModel):
     db_record_id: Optional[int] = Field(None, description="DB 저장 시 생성된 레코드 ID")
     execution_time_ms: int = Field(..., description="실행 시간 (밀리초)")
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "success": True,
                 "final_prompt": "당신은 전문 UI/UX 설계자이자...",
                 "final_prompt_length": 4523,
-                "prompt_structure": {"model": "gpt-4", "messages": [...]},
+                "prompt_structure": {"model": "gpt-4", "messages": []},
                 "saved_to_db": True,
                 "db_record_id": 1,
                 "execution_time_ms": 125
             }
         }
+    )
 
 
 class GenerationStatusResponse(BaseModel):
@@ -150,8 +161,8 @@ class GenerationStatusResponse(BaseModel):
     retry_count: int = Field(..., description="재시도 횟수")
     has_prototype: bool = Field(..., description="프로토타입 생성 완료 여부")
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "screen_id": 18,
                 "generation_status": "waiting_quota",
@@ -162,3 +173,4 @@ class GenerationStatusResponse(BaseModel):
                 "has_prototype": False
             }
         }
+    )

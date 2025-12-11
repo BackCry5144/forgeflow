@@ -3,7 +3,6 @@
 import json
 import os
 import logging
-import ssl
 import asyncio
 import traceback
 from io import BytesIO
@@ -13,33 +12,9 @@ from docx.shared import Inches, Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
-import google.generativeai as genai
-from google.api_core import exceptions as google_exceptions
 
-# ============================================================================
-# SSL 인증서 검증 완전 우회 설정 (개발 환경용) - ai_service.py와 동일
-# ============================================================================
-os.environ['GRPC_VERBOSITY'] = 'NONE'
-os.environ['GRPC_TRACE'] = ''
-os.environ['GRPC_ENABLE_FORK_SUPPORT'] = '1'
-os.environ['GRPC_SSL_CIPHER_SUITES'] = 'HIGH+ECDSA'
-os.environ['GRPC_DEFAULT_SSL_ROOTS_FILE_PATH'] = ''
-os.environ['SSL_CERT_FILE'] = ''
-os.environ['REQUESTS_CA_BUNDLE'] = ''
-os.environ['CURL_CA_BUNDLE'] = ''
-os.environ['PYTHONHTTPSVERIFY'] = '0'
-ssl._create_default_https_context = ssl._create_unverified_context
-
-try:
-    import warnings
-    warnings.filterwarnings('ignore', category=DeprecationWarning)
-    grpc_logger = logging.getLogger('grpc')
-    grpc_logger.setLevel(logging.CRITICAL)
-    grpc_logger.addHandler(logging.NullHandler())
-    grpc_logger.propagate = False
-except Exception:
-    pass
-# ============================================================================
+# GeminiClient 사용 (SSL 우회 지원)
+from services.gemini_client import get_gemini_client, GeminiClientError
 
 from utils.doc_prompts import get_design_spec_prompt, get_test_plan_prompt, get_user_manual_prompt
 
@@ -48,54 +23,37 @@ logger = logging.getLogger(__name__)
 
 class DocumentService:
     def __init__(self):
-        # API 키 설정 및 모델 직접 생성 (ai_service.py와 동일한 방식)
-        api_key = os.getenv("GOOGLE_API_KEY")
-        if not api_key:
-            raise ValueError("GOOGLE_API_KEY 환경 변수가 설정되지 않았습니다")
-        
-        genai.configure(api_key=api_key)
-        
-        self.model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-pro")
-        if self.model_name.endswith("-latest"):
-            self.model_name = self.model_name[:-7]
-            
-        self.model = genai.GenerativeModel(self.model_name)
+        # GeminiClient 사용 (SSL 우회 지원)
+        self.client = get_gemini_client()
         
         # 설정
         self.max_quota_retries = 3
         self.retry_delay_seconds = 30
-        
-        logger.info(f"DocumentService initialized with model: {self.model_name}")
+
+        logger.info(f"DocumentService initialized with GeminiClient: {self.client.model_name}")
 
     async def _call_with_retry(self, prompt: str, operation_name: str = "LLM Call"):
-        """LLM 호출 + 재시도 로직 (ai_service.py와 동일한 패턴)"""
-        generation_config = {
-            "temperature": 0.2,
-            "max_output_tokens": 8192,
-            "response_mime_type": "application/json"
-        }
-        
-        for attempt in range(self.max_quota_retries + 1):
-            try:
-                logger.info(f"🤖 [{operation_name}] Calling Gemini API (attempt {attempt + 1})...")
-                response = await self.model.generate_content_async(
-                    prompt,
-                    generation_config=generation_config
-                )
-                logger.info(f"📨 [{operation_name}] Response received")
-                return response
-            except google_exceptions.ResourceExhausted:
-                if attempt < self.max_quota_retries:
-                    wait_time = self.retry_delay_seconds
-                    logger.warning(f"⏳ [{operation_name}] Quota exceeded. Retrying in {wait_time}s...")
-                    await asyncio.sleep(wait_time)
-                else:
-                    raise Exception(f"Quota exceeded after {self.max_quota_retries} retries.")
-            except Exception as e:
-                logger.error(f"❌ [{operation_name}] Failed: {type(e).__name__}: {e}")
-                raise e
-        
-        raise Exception("Unexpected error in LLM call")
+        """LLM 호출 + 재시도 로직 (GeminiClient 사용)"""
+        try:
+            logger.info(f"🤖 [{operation_name}] Calling Gemini API...")
+            
+            # GeminiClient의 generate_content_async 사용
+            text = await self.client.generate_content_async(
+                prompt=prompt,
+                temperature=0.2,
+                max_output_tokens=8192,
+                timeout=120
+            )
+            
+            logger.info(f"📨 [{operation_name}] Response received ({len(text)} chars)")
+            return text
+            
+        except GeminiClientError as e:
+            logger.error(f"❌ [{operation_name}] GeminiClient Error: {e.error_type}: {e.message}")
+            raise Exception(f"{e.error_type}: {e.message}")
+        except Exception as e:
+            logger.error(f"❌ [{operation_name}] Failed: {type(e).__name__}: {e}")
+            raise e
 
     async def generate_design_doc(
         self, 
@@ -112,11 +70,12 @@ class DocumentService:
             prompt = get_design_spec_prompt(react_code, wizard_data)
             logger.info(f"📝 Prompt generated: {len(prompt)} chars")
             
-            response = await self._call_with_retry(prompt, "Design Spec")
+            text = await self._call_with_retry(prompt, "Design Spec")
             
             # JSON 파싱
-            text = response.text.strip()
+            text = text.strip()
             if text.startswith("```json"): text = text[7:]
+            if text.startswith("```"): text = text[3:]
             if text.endswith("```"): text = text[:-3]
             design_data = json.loads(text)
             logger.info("✅ LLM Data Extraction Success")
@@ -350,10 +309,11 @@ class DocumentService:
             prompt = get_test_plan_prompt(react_code, wizard_data)
             logger.info(f"📝 Test Plan Prompt generated: {len(prompt)} chars")
             
-            response = await self._call_with_retry(prompt, "Test Plan")
+            text = await self._call_with_retry(prompt, "Test Plan")
             
-            text = response.text.strip()
+            text = text.strip()
             if text.startswith("```json"): text = text[7:]
+            if text.startswith("```"): text = text[3:]
             if text.endswith("```"): text = text[:-3]
             test_data = json.loads(text)
             logger.info("✅ LLM Test Plan Extraction Success")
@@ -517,10 +477,11 @@ class DocumentService:
             prompt = get_user_manual_prompt(react_code, wizard_data)
             logger.info(f"📝 User Manual Prompt generated: {len(prompt)} chars")
             
-            response = await self._call_with_retry(prompt, "User Manual")
+            text = await self._call_with_retry(prompt, "User Manual")
             
-            text = response.text.strip()
+            text = text.strip()
             if text.startswith("```json"): text = text[7:]
+            if text.startswith("```"): text = text[3:]
             if text.endswith("```"): text = text[:-3]
             manual_data = json.loads(text)
             logger.info("✅ LLM User Manual Extraction Success")

@@ -86,6 +86,12 @@ services:
       REQUESTS_CA_BUNDLE: ""
       SSL_CERT_FILE: ""
       
+      # gRPC SSL 우회 설정 (Gemini API용)
+      GRPC_SSL_CIPHER_SUITES: "HIGH+ECDSA"
+      GRPC_DEFAULT_SSL_ROOTS_FILE_PATH: ""
+      GRPC_VERBOSITY: "ERROR"
+      GOOGLE_API_USE_CLIENT_CERTIFICATE: "false"
+      
       # Timezone
       TZ: Asia/Seoul
     ports:
